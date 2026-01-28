@@ -25,9 +25,9 @@ namespace BanuPool.API.Controllers
         }
 
         [HttpGet]
-        public async Task<IEnumerable<Ride>> SearchRides([FromQuery] string? origin, [FromQuery] string? destination)
+        public async Task<IEnumerable<Ride>> SearchRides([FromQuery] string? origin, [FromQuery] string? destination, [FromQuery] int? userId)
         {
-            return await _rideService.SearchRidesAsync(origin ?? "", destination ?? "");
+            return await _rideService.SearchRidesAsync(origin ?? "", destination ?? "", userId);
         }
 
         [HttpGet("{id}")]
@@ -41,9 +41,16 @@ namespace BanuPool.API.Controllers
         [HttpPost("{id}/reserve")]
         public async Task<IActionResult> ReserveSeat(int id, [FromQuery] int userId)
         {
-            var success = await _rideService.ReserveSeatAsync(id, userId);
-            if (!success) return BadRequest("Could not reserve seat (Full or Ride not found).");
-            return Ok("Reservation confirmed.");
+            try
+            {
+                var success = await _rideService.ReserveSeatAsync(id, userId);
+                if (!success) return BadRequest("Yer yok veya ilan bulunamadı.");
+                return Ok("Reservation confirmed.");
+            }
+            catch (System.InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpDelete("{id}/reserve")]

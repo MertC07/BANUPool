@@ -34,7 +34,7 @@
                 <p>Kişisel bilgilerinizi ve araç detaylarınızı buradan güncelleyebilirsiniz.</p>
             </div>
 
-            <form id="profileForm" onsubmit="updateProfile(event)">
+            <form id="profileForm" action="javascript:void(0);" onsubmit="event.preventDefault(); updateProfile(event)">
                 <h3 class="section-heading">Kişisel Bilgiler</h3>
 
                 <div style="display: flex; gap: 1rem;">

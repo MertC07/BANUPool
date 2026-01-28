@@ -17,6 +17,8 @@ namespace BanuPool.Core.Entities
         public int VehicleId { get; set; }
         public Vehicle? Vehicle { get; set; }
         
+        public ICollection<Reservation> Reservations { get; set; } = new List<Reservation>();
+        
         // Encapsulation: AvailableSeats managed via methods
         public int TotalSeats { get; set; }
         public int ReservedSeats { get; private set; }

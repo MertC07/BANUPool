@@ -56,11 +56,12 @@ namespace BanuPool.API.Services
         /// Searches for rides based on origin and destination.
         /// Uses AsNoTracking for read-only performance optimization.
         /// </summary>
-        public async Task<IEnumerable<Ride>> SearchRidesAsync(string origin, string destination)
+        public async Task<IEnumerable<Ride>> SearchRidesAsync(string origin, string destination, int? currentUserId = null)
         {
             var query = _context.Rides
                 .Include(r => r.Driver)
                 .Include(r => r.Vehicle)
+                .Include(r => r.Reservations) // Need this for filtering
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(origin))
@@ -73,6 +74,12 @@ namespace BanuPool.API.Services
                 query = query.Where(r => r.Destination.Contains(destination));
             }
 
+            // Exclude rides where the current user has a reservation
+            if (currentUserId.HasValue)
+            {
+                query = query.Where(r => !r.Reservations.Any(res => res.PassengerId == currentUserId.Value));
+            }
+
             return await query.ToListAsync();
         }
 
@@ -80,6 +87,10 @@ namespace BanuPool.API.Services
         {
             var ride = await _context.Rides.FindAsync(rideId);
             if (ride == null) return false;
+
+            // Check for duplicate reservation
+            var exists = await _context.Reservations.AnyAsync(r => r.RideId == rideId && r.PassengerId == userId);
+            if (exists) throw new InvalidOperationException("Bu ilana zaten rezervasyon yaptınız.");
 
             if (ride.TryReserveSeat())
             {

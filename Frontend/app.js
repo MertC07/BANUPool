@@ -56,19 +56,40 @@ const Toast = Swal.mixin({
     toast: true,
     position: 'top-end',
     showConfirmButton: false,
-    timer: 6000,
+    timer: 4000,
     timerProgressBar: true,
     didOpen: (toast) => {
-        toast.style.zIndex = '100000'; // FORCE ON TOP
+        toast.style.zIndex = '9999999';
         const container = Swal.getContainer();
-        if (container) container.style.zIndex = '100000';
+        if (container) container.style.zIndex = '9999999';
         toast.addEventListener('mouseenter', Swal.stopTimer)
         toast.addEventListener('mouseleave', Swal.resumeTimer)
+        toast.addEventListener('click', Swal.close) // Click to dismiss
+
+        // CSS Improvements for "Clickable" feel
+        toast.style.cursor = 'pointer';
+        toast.style.userSelect = 'none'; // Disable text selection
+        toast.style.webkitUserSelect = 'none';
+
+        // FORCE CSS via Style Tag to override SweetAlert defaults
+        const style = document.createElement('style');
+        style.innerHTML = `
+            div.swal2-toast, 
+            div.swal2-toast * {
+                cursor: pointer !important;
+                user-select: none !important;
+                -webkit-user-select: none !important;
+            }
+        `;
+        document.head.appendChild(style);
     }
 });
 
 function showToast(msg, icon = 'success') {
-    Toast.fire({ icon: icon, title: msg });
+    // Delay to allow DOM updates/reloads to settle
+    setTimeout(() => {
+        Toast.fire({ icon: icon, title: msg });
+    }, 200);
 }
 
 function showError(msg) {
@@ -158,7 +179,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Auto-load if on dashboard
     if (document.getElementById('ridesList')) {
-        loadRides();
+        // CHECK FLASH MESSAGE (Ride Creation)
+        const rideAction = localStorage.getItem('rideSuccess');
+        if (rideAction) {
+            localStorage.removeItem('rideSuccess');
+            switchTab('my'); // Force switch to My Rides
+            showToast(rideAction === 'updated' ? 'İlan Güncellendi! ✅' : 'İlan Başarıyla Oluşturuldu! 🚀');
+        } else {
+            loadRides();
+        }
     }
 });
 
@@ -418,40 +447,7 @@ async function cancelSeat(rideId) {
     }
 }
 
-// --- TABS & NAVIGATION ---
-window.currentTab = 'all';
-
-window.switchTab = function (tabName) {
-    window.currentTab = tabName;
-
-    // Update Buttons
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    const btnMap = { 'all': 0, 'my': 1, 'reservations': 2 };
-    const buttons = document.querySelectorAll('.tab-btn');
-    if (buttons[btnMap[tabName]]) buttons[btnMap[tabName]].classList.add('active');
-
-    // Update Visibility
-    const ridesList = document.getElementById('ridesList');
-    const myReservations = document.getElementById('my-reservations-list');
-    const searchSection = document.getElementById('searchSection');
-
-    if (tabName === 'reservations') {
-        if (ridesList) ridesList.style.display = 'none';
-        if (myReservations) myReservations.style.display = 'block';
-        if (searchSection) searchSection.style.display = 'none';
-        loadMyReservations();
-    } else {
-        if (ridesList) ridesList.style.display = 'grid'; // or block
-        if (myReservations) myReservations.style.display = 'none';
-
-        if (tabName === 'all') {
-            if (searchSection) searchSection.style.display = 'block';
-        } else {
-            if (searchSection) searchSection.style.display = 'none'; // Hide search in 'My Rides'
-        }
-        loadRides();
-    }
-};
+// (Removed duplicate Tab Logic to fix scoping issue)
 
 // --- RIDE MANAGEMENT ---
 async function loadRides() {
@@ -461,9 +457,11 @@ async function loadRides() {
     const sortBy = document.getElementById('sortBy')?.value || 'dateAsc';
 
     try {
-        const response = await fetch(`${API_URL}/rides`);
+        const currentUserId = getUserId();
+        const url = currentUserId ? `${API_URL}/rides?userId=${currentUserId}` : `${API_URL}/rides`;
+
+        const response = await fetch(url);
         let rides = await response.json();
-        const currentUserId = localStorage.getItem('userId');
 
         // 1. FILTERING
         if (currentTab === 'my') {
@@ -716,6 +714,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // --- CREATE RIDE HANDLER (Global) ---
+// --- CREATE RIDE HANDLER (Rewritten for Reliability) ---
 window.handleRideSubmit = async function () {
     const token = checkAuth();
     if (!token) return;
@@ -726,38 +725,38 @@ window.handleRideSubmit = async function () {
         return;
     }
 
-    // Manual Validation (Since we removed the form tag to prevent reloads)
+    // 1. Collect & Validate Inputs
     const origin = document.getElementById('newOrigin').value;
     const dest = document.getElementById('newDest').value;
-    const dateVal = document.getElementById('newDate').value;
-    const priceVal = document.getElementById('newPrice').value;
+    const dateInput = document.getElementById('newDate');
+    const seats = document.getElementById('newSeats').value;
+    const price = document.getElementById('newPrice').value;
 
-    if (!origin || !dest || !dateVal || !priceVal) {
+    if (!origin || !dest || !dateInput.value || !price) {
         showToast('Lütfen tüm alanları doldurunuz.', 'warning');
         return;
     }
 
-    const dateInput = document.getElementById('newDate');
+    // 2. Prepare Payload
     let departureTimeStr = "";
-
     if (dateInput._flatpickr && dateInput._flatpickr.selectedDates.length > 0) {
-        // Use Flatpickr's reliable formatting
-        const dateOffset = new Date(dateInput._flatpickr.selectedDates[0].getTime() - (dateInput._flatpickr.selectedDates[0].getTimezoneOffset() * 60000));
+        const d = dateInput._flatpickr.selectedDates[0];
+        const dateOffset = new Date(d.getTime() - (d.getTimezoneOffset() * 60000));
         departureTimeStr = dateOffset.toISOString().slice(0, 19);
     } else {
-        // Fallback or if manual input
         departureTimeStr = dateInput.value.replace(' ', 'T') + ':00';
     }
 
     const ride = {
         driverId: parseInt(userId),
-        origin: document.getElementById('newOrigin').value,
-        destination: document.getElementById('newDest').value,
-        departureTime: departureTimeStr, // Send as ISO
-        totalSeats: parseInt(document.getElementById('newSeats').value),
-        price: parseFloat(document.getElementById('newPrice').value)
+        origin: origin,
+        destination: dest,
+        departureTime: departureTimeStr,
+        totalSeats: parseInt(seats),
+        price: parseFloat(price)
     };
 
+    // 3. API Request
     try {
         let url = `${API_URL}/rides`;
         let method = 'POST';
@@ -765,7 +764,7 @@ window.handleRideSubmit = async function () {
         if (editingRideId) {
             url = `${API_URL}/rides/${editingRideId}`;
             method = 'PUT';
-            ride.id = editingRideId; // Ensure ID is sent for backend validation
+            ride.id = editingRideId;
         }
 
         const response = await fetch(url, {
@@ -773,40 +772,24 @@ window.handleRideSubmit = async function () {
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify(ride)
         });
+
         if (response.ok) {
-            document.getElementById('createRideModal').style.display = 'none';
-            editingRideId = null; // Reset ID
+            // --- SUCCESS FLOW (Flash Message) ---
 
-            // Switch to "My Rides" view
-            switchTab('my');
+            // 1. Save State
+            localStorage.setItem('rideSuccess', editingRideId ? 'updated' : 'created');
 
-            // Delay the toast to ensure it appears on the Dashboard, AFTER modal is fully gone
-            setTimeout(() => {
-                // Ensure Z-Index is high and visibility is forced
-                Swal.fire({
-                    icon: 'success',
-                    title: editingRideId ? 'İlan Güncellendi!' : 'İlanınız Yayınlandı! 🚀',
-                    toast: true,
-                    position: 'top-end',
-                    showConfirmButton: false,
-                    timer: 5000,
-                    timerProgressBar: true,
-                    background: '#10b981', // Distinct Green Background
-                    color: '#fff', // White Text
-                    didOpen: (toast) => {
-                        toast.style.zIndex = '9999999';
-                        toast.onmouseenter = Swal.stopTimer;
-                        toast.onmouseleave = Swal.resumeTimer;
-                        // Force Container Z-Index as well
-                        const c = Swal.getContainer();
-                        if (c) c.style.zIndex = '9999999';
-                    }
-                });
-            }, 700);
+            // 2. Reload Page (Ensures fresh state and matches Login Logic)
+            window.location.reload();
+
         } else {
-            showError("Hata: " + await response.text());
+            const err = await response.text();
+            showError("Hata: " + err);
         }
-    } catch (err) { console.error(err); }
+    } catch (err) {
+        console.error(err);
+        showError('Bağlantı hatası: ' + err.message);
+    }
 };
 
 // --- MODALS & FORMS ---
@@ -971,6 +954,12 @@ async function loadProfile() {
     const userId = getUserId();
     if (!userId) return;
 
+    // CHECK FLASH MESSAGE (Profile)
+    if (localStorage.getItem('profileSuccess')) {
+        localStorage.removeItem('profileSuccess');
+        showToast('Profil bilgileriniz başarıyla güncellendi! ✅');
+    }
+
     try {
         const res = await fetch(`${API_URL}/users/${userId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -1025,7 +1014,9 @@ async function updateProfile(e) {
         });
 
         if (res.ok) {
-            showToast('Profil bilgileriniz güncellendi.');
+            // FLASH MESSAGE: Save state and reload
+            localStorage.setItem('profileSuccess', 'true');
+            window.location.reload();
         } else {
             showError('Güncelleme başarısız: ' + await res.text());
         }
@@ -1129,7 +1120,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'application/json' }
                 });
                 if (res.ok) {
-                    // FLASH MESSAGE PATTERN: Save state and redirect
+                    // FLASH MESSAGE: Redirect immediately, show message on Login page
                     localStorage.setItem('registrationSuccess', 'true');
                     window.location.href = 'login.html';
                 } else {
@@ -1143,13 +1134,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // CHECK FLASH MESSAGE (Login Page)
     if (localStorage.getItem('registrationSuccess')) {
         localStorage.removeItem('registrationSuccess');
-        Swal.fire({
-            title: '🎉 Kayıt Başarılı!',
-            text: 'Hesabınız oluşturuldu. Lütfen giriş yapınız.',
-            icon: 'success',
-            confirmButtonText: 'Tamam',
-            confirmButtonColor: 'var(--primary-color)'
-        });
+        // Delay slightly to ensure page is ready
+        // Delay slightly to ensure page is ready
+        setTimeout(() => {
+            showToast('Hesabınız oluşturuldu. Lütfen giriş yapınız. 🎉');
+        }, 300);
     }
 });
 
@@ -1716,11 +1705,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (res.ok) {
                     const data = await res.json();
 
-                    // Store Session Data
-                    const storage = rememberMe ? localStorage : sessionStorage;
-                    storage.setItem('token', data.token);
-                    storage.setItem('userId', data.userId);
-                    // storage.setItem('userType', data.userType); // If needed
+                    // Store Session Data & Clear Opposing Storage
+                    if (rememberMe) {
+                        localStorage.setItem('token', data.token);
+                        localStorage.setItem('userId', data.userId);
+                        sessionStorage.removeItem('token');
+                        sessionStorage.removeItem('userId');
+                    } else {
+                        sessionStorage.setItem('token', data.token);
+                        sessionStorage.setItem('userId', data.userId);
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('userId');
+                    }
 
                     showToast('Giriş başarılı! Yönlendiriliyorsunuz...', 'success');
 
