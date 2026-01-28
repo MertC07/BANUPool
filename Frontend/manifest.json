@@ -1,0 +1,15 @@
+{
+    "name": "BANÜ-Pool: Kampüs Araç Paylaşımı",
+    "short_name": "BANÜ-Pool",
+    "start_url": "./index.html",
+    "display": "standalone",
+    "background_color": "#0f172a",
+    "theme_color": "#0f172a",
+    "icons": [
+        {
+            "src": "./icon.png",
+            "sizes": "1024x1024",
+            "type": "image/png"
+        }
+    ]
+}

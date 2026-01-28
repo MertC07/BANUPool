@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="manifest.json">
+    <title>Profilim | BANÜ-Pool</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        // Auth Check
+        const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+        if (!token) window.location.href = 'login.html';
+    </script>
+</head>
+
+<body onload="loadProfile()">
+    <nav>
+        <a href="index.html" class="logo">BANÜ-Pool</a>
+        <div class="nav-links">
+            <a href="index.html">Ana Sayfa</a>
+            <a href="dashboard.html">İlanlar</a>
+            <a href="profile.html" class="active">Profilim</a>
+            <a href="#" onclick="logout()">Çıkış Yap</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="profile-container">
+            <div class="profile-header">
+                <div class="profile-icon">👤</div>
+                <h2>Profil Bilgileri</h2>
+                <p>Kişisel bilgilerinizi ve araç detaylarınızı buradan güncelleyebilirsiniz.</p>
+            </div>
+
+            <form id="profileForm" onsubmit="updateProfile(event)">
+                <h3 class="section-heading">Kişisel Bilgiler</h3>
+
+                <div style="display: flex; gap: 1rem;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Ad</label>
+                        <input type="text" id="pFirstName" required>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Soyad</label>
+                        <input type="text" id="pLastName" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>E-posta (Değiştirilemez)</label>
+                    <input type="email" id="pEmail" disabled class="input-disabled">
+                </div>
+
+                <div class="form-group">
+                    <label>Telefon</label>
+                    <input type="tel" id="pPhone" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Kullanıcı Tipi</label>
+                    <input type="text" id="pUserType" disabled class="input-disabled highlight">
+                </div>
+
+                <h3 class="section-heading" style="margin-top: 2rem;">Araç Bilgileri</h3>
+                <p class="section-subtext">Sadece sürücüyseniz doldurunuz.</p>
+
+                <div class="form-group">
+                    <label>Plaka</label>
+                    <input type="text" id="vPlate" placeholder="10 ABC 123">
+                </div>
+
+                <div style="display: flex; gap: 1rem;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Model</label>
+                        <input type="text" id="vModel" placeholder="Fiat Egea">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Renk</label>
+                        <input type="text" id="vColor" placeholder="Beyaz">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary" style="width: 100%; margin-top: 2rem;">Kaydet</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

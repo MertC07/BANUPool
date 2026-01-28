@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="manifest.json">
+    <title>BANÜ-Pool | Kampüs Araç Paylaşımı</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+
+<body>
+    <nav>
+        <a href="index.html" class="logo">BANÜ-Pool</a>
+        <div class="nav-links">
+            <a href="index.html" class="active">Ana Sayfa</a>
+            <a href="dashboard.html">İlanlar</a>
+            <!-- Content filled by app.js -->
+        </div>
+    </nav>
+
+    <header class="hero">
+        <h1>Kampüs Yolculuklarını <span
+                style="background: var(--primary-gradient); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">Paylaş</span>
+        </h1>
+        <p>Öğrenci ve akademisyenler için güvenli, ekonomik ve sosyal araç paylaşım platformu. Masrafları bölüş, yeni
+            bağlantılar kur.</p>
+        <div class="cta-buttons">
+            <a href="dashboard.html" class="btn-primary"
+                style="padding: 1rem 2rem; font-size: 1.1rem; min-height: 56px;">Yolculuk Ara</a>
+            <a href="login.html" class="btn-outline"
+                style="padding: 1rem 2rem; font-size: 1.1rem; min-height: 56px;">İlan Ver</a>
+        </div>
+    </header>
+
+    <div class="container" style="padding-bottom: 2rem;">
+        <h2 class="section-title">Nasıl Çalışır?</h2>
+        <div class="feature-grid">
+            <div class="card text-center">
+                <div class="benefit-icon">🔍</div>
+                <h3>1. İlan Ara</h3>
+                <p>Gideceğin güzergahı arat. Saat ve fiyat sana uygun olanı seç.</p>
+            </div>
+            <div class="card text-center">
+                <div class="benefit-icon">📅</div>
+                <h3>2. Rezervasyon Yap</h3>
+                <p>Sürücüyle eşleş, koltuğunu ayırt ve onayı bekle.</p>
+            </div>
+            <div class="card text-center">
+                <div class="benefit-icon">🚙</div>
+                <h3>3. Birlikte Git</h3>
+                <p>Belirlenen noktada buluş ve keyifli bir yolculuk yap.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Why Choose Us -->
+    <div class="why-choose-us-section">
+        <div class="container" style="padding: 0;">
+            <h2 class="section-title">Neden BANÜ-Pool?</h2>
+            <div class="feature-grid">
+                <div class="card" style="box-shadow: none; border: none; background: transparent;">
+                    <h3 style="color: var(--primary-color);">💰 Ekonomik</h3>
+                    <p>Yolculuk masraflarını bölüşerek bütçeni koru. Hem sürücü hem de yolcu kazanır.</p>
+                </div>
+                <div class="card" style="box-shadow: none; border: none; background: transparent;">
+                    <h3 style="color: var(--secondary-color);">🛡️ Güvenli</h3>
+                    <p>Sadece doğrulanmış üniversite öğrencileri ve personeli ile seyahat et.</p>
+                </div>
+                <div class="card" style="box-shadow: none; border: none; background: transparent;">
+                    <h3 style="color: var(--accent-color);">🌱 Çevre Dostu</h3>
+                    <p>Daha az araç, daha az karbon emisyonu. Doğayı korumaya katkıda bulun.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Testimonials -->
+    <section class="testimonials">
+        <h2 class="section-title">Kullanıcı Deneyimleri</h2>
+        <div class="testimonial-grid">
+            <div class="testimonial-card">
+                <p>"Kampüse gitmek artık çok daha kolay ve ucuz. Hem yeni arkadaşlar edindim hem de konforlu seyahat
+                    ediyorum."</p>
+                <div class="user-profile">
+                    <div class="avatar">A</div>
+                    <div>
+                        <strong>Ayşe Y.</strong><br>
+                        <span style="font-size: 0.9rem; color: #64748b;">Bilgisayar Müh. Öğrencisi</span>
+                    </div>
+                </div>
+            </div>
+            <div class="testimonial-card">
+                <p>"Aracımdaki boş koltukları paylaşarak benzin masrafımı çıkardım. Sistem çok güvenli ve pratik."</p>
+                <div class="user-profile">
+                    <div class="avatar" style="background: linear-gradient(135deg, #10b981, #059669);">M</div>
+                    <div>
+                        <strong>Mehmet K.</strong><br>
+                        <span style="font-size: 0.9rem; color: #64748b;">İktisat Bölümü</span>
+                    </div>
+                </div>
+            </div>
+            <div class="testimonial-card">
+                <p>"Her sabah otobüs beklemekten kurtuldum. Derslerime zamanında yetişiyorum."</p>
+                <div class="user-profile">
+                    <div class="avatar" style="background: linear-gradient(135deg, #f43f5e, #e11d48);">S</div>
+                    <div>
+                        <strong>Selin D.</strong><br>
+                        <span style="font-size: 0.9rem; color: #64748b;">Hemşirelik</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="faq-section">
+        <h2 class="section-title">Sıkça Sorulan Sorular</h2>
+        <div class="faq-item">
+            <button class="faq-question">Ödeme nasıl yapılıyor? <span>+</span></button>
+            <div class="faq-answer">
+                Ödemeler şu an için yolculuk sırasında nakit veya IBAN yoluyla sürücüye doğrudan yapılıyor.
+            </div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question">Güvenilir mi? <span>+</span></button>
+            <div class="faq-answer">
+                Evet, sadece üniversite e-posta adresi (@bandirma.edu.tr) ile kayıt olunduğu için herkesin kimliği
+                doğrulanmıştır.
+            </div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question">İlan oluşturmak ücretsiz mi? <span>+</span></button>
+            <div class="faq-answer">
+                Evet, ilan oluşturmak veya aramak tamamen ücretsizdir.
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-content">
+            <div class="footer-col">
+                <h4 class="logo" style="margin-top:0;">BANÜ-Pool</h4>
+                <p style="color: #94a3b8;">Bandırma Onyedi Eylül Üniversitesi öğrencileri ve personeli için
+                    geliştirilmiş araç paylaşım platformu.</p>
+            </div>
+            <div class="footer-col">
+                <h4>Hızlı Linkler</h4>
+                <div class="footer-links">
+                    <a href="index.html">Ana Sayfa</a>
+                    <a href="dashboard.html">İlanlar</a>
+                    <a href="login.html">Giriş Yap</a>
+                    <a href="register.html">Kayıt Ol</a>
+                </div>
+            </div>
+            <div class="footer-col">
+                <h4>İletişim</h4>
+                <div class="footer-links">
+                    <a href="javascript:void(0)" onclick="showSupport()">Destek</a>
+                    <a href="javascript:void(0)" onclick="showPrivacy()">Gizlilik Politikası</a>
+                    <a href="javascript:void(0)" onclick="showTerms()">Kullanım Koşulları</a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            &copy; 2025 BANÜ-Pool. Tüm hakları saklıdır.
+        </div>
+    </footer>
+
+    <!-- BANÜ-BOT WIDGET -->
+    <div class="chat-widget">
+        <button class="chat-toggle" onclick="toggleChat()" title="BANÜ-Asistan">
+            <svg viewBox="0 0 24 24">
+                <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
+            </svg>
+        </button>
+        <div class="chat-window">
+            <div class="chat-header">
+                <div class="bot-avatar">🤖</div>
+                <div>
+                    <h3>BANÜ-Asistan</h3>
+                    <span>Çevrimiçi</span>
+                </div>
+            </div>
+            <div class="chat-body" id="chatBody">
+                <div class="chat-message bot">
+                    Merhaba! Ben BANÜ-Asistan. 👋<br>Sana nasıl yardımcı olabilirim?
+                </div>
+                <!-- Messages go here -->
+                <div class="typing-indicator" id="typingIndicator">
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                </div>
+            </div>
+            <!-- Quick Replies Container -->
+            <div class="chat-options" id="chatOptions"></div>
+
+            <div class="chat-footer">
+                <input type="text" id="chatInput" class="chat-input" placeholder="Bir şeyler yaz..."
+                    onkeypress="handleChatKey(event)">
+                <button class="chat-send" onclick="sendMessage()">➤</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // Simple FAQ Accordion
+        document.querySelectorAll('.faq-question').forEach(button => {
+            button.addEventListener('click', () => {
+                const item = button.parentElement;
+                item.classList.toggle('active');
+            });
+        });
+    </script>
+</body>
+
+</html>

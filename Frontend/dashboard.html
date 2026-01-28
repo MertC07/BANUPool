@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="manifest.json">
+    <title>İlanlar | BANÜ-Pool</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/tr.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+    <script>
+        // Strict Auth Check - Run immediately
+        const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+        if (!token) {
+            window.location.href = 'login.html';
+        }
+    </script>
+</head>
+
+<body onload="loadRides()">
+    <nav>
+        <a href="index.html" class="logo">BANÜ-Pool</a>
+        <div class="nav-links">
+            <a href="index.html">Ana Sayfa</a>
+            <a href="dashboard.html" class="active">İlanlar</a>
+            <a href="#" onclick="logout()">Çıkış Yap</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Header & Tabs -->
+        <div class="dashboard-header-container"
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+            <!-- Spacer to balance layout if needed, or just justify-between -->
+            <div style="width: 150px;"></div>
+
+            <div class="tab-container" style="margin-bottom: 0;">
+                <button class="tab-btn active" onclick="switchTab('all')">🔍 Yolculuk Ara</button>
+                <button class="tab-btn" onclick="switchTab('my')">🚘 İlanlarım</button>
+                <button class="tab-btn" onclick="switchTab('reservations')">🎫 Biletlerim</button>
+            </div>
+
+            <button onclick="showCreateRideModal()" class="btn-primary" style="box-shadow: var(--shadow-md);">
+                İlan Oluştur +
+            </button>
+        </div>
+
+        <!-- Search Bar (Visible only in 'all' tab) -->
+        <div id="searchSection" class="search-bar-container">
+            <div class="search-bar">
+                <div class="search-input-group">
+                    <label>Nereden</label>
+                    <select id="searchOrigin" class="search-select">
+                        <option value="">Tümü</option>
+                        <!-- Options via JS -->
+                    </select>
+                </div>
+                <div class="search-divider"></div>
+                <div class="search-input-group">
+                    <label>Nereye</label>
+                    <select id="searchDest" class="search-select">
+                        <option value="">Tümü</option>
+                        <!-- Options via JS -->
+                    </select>
+                </div>
+                <div class="search-divider"></div>
+                <div class="search-input-group small-group">
+                    <label>Max Fiyat</label>
+                    <input type="number" id="searchMaxPrice" placeholder="Tümü" min="0">
+                </div>
+                <div class="search-divider"></div>
+                <div class="search-input-group small-group">
+                    <label>Sıralama</label>
+                    <select id="sortBy" onchange="loadRides()" class="search-select">
+                        <option value="dateAsc" selected>Tarih (En Yakın)</option>
+                        <option value="dateDesc">Tarih (En Uzak)</option>
+                        <option value="priceAsc">Fiyat (Artan)</option>
+                        <option value="priceDesc">Fiyat (Azalan)</option>
+                    </select>
+                </div>
+                <button onclick="loadRides()" class="search-btn">
+                    Ara
+                </button>
+            </div>
+            <div style="text-align: center; margin-top: 1rem;">
+                <button onclick="resetFilters()" class="btn-text">Filtreleri Temizle</button>
+            </div>
+        </div>
+
+        <!-- Action Bar (For 'my' tab or general actions) -->
+        <!-- Removed as requested -->
+
+        <!-- Create Ride Button (Floating for 'all' tab too) -->
+        <!-- Removed as requested -->
+
+        <div id="ridesList">
+            <p style="text-align: center;">Yükleniyor...</p>
+        </div>
+
+        <div id="my-reservations-list" style="display: none;">
+            <p style="text-align: center;">Yükleniyor...</p>
+        </div>
+    </div>
+
+    <!-- Create Ride Modal -->
+    <div id="createRideModal" class="modal-overlay">
+        <div class="modal-content">
+            <span class="close-modal"
+                onclick="document.getElementById('createRideModal').style.display='none'">&times;</span>
+            <h3 style="margin-top: 0; margin-bottom: 1.5rem;">Yeni İlan Oluştur</h3>
+            <div id="createRideWrapper">
+                <div style="display: flex; gap: 1rem;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Nereden</label>
+                        <select id="newOrigin" class="location-select" required onchange="calculateSmartPrice()">
+                            <option value="" disabled selected>Seçiniz</option>
+                            <!-- Options populated by JS -->
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Nereye</label>
+                        <select id="newDest" class="location-select" required onchange="calculateSmartPrice()">
+                            <option value="" disabled selected>Seçiniz</option>
+                            <!-- Options populated by JS -->
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Tarih & Saat</label>
+                    <input type="text" id="newDate" placeholder="Tarih seçiniz..." required>
+                </div>
+
+                <div class="form-group">
+                    <label>Koltuk Sayısı</label>
+                    <select id="newSeats" required>
+                        <option value="1">1 Koltuk</option>
+                        <option value="2">2 Koltuk</option>
+                        <option value="3" selected>3 Koltuk</option>
+                        <option value="4">4 Koltuk</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Fiyat (TL) <span id="priceHint"
+                            style="font-weight: normal; font-size: 0.8rem; color: var(--secondary-color); margin-left: 0.5rem;"></span></label>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <input type="number" id="newPrice" required
+                            style="font-weight: bold; color: var(--primary-color);">
+                        <button type="button" onclick="calculateSmartPrice()"
+                            style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--primary-color);"
+                            title="Yapay Zeka Fiyat Hesapla">✨</button>
+                    </div>
+                </div>
+
+                <button type="button" id="btnPublishRide" onclick="handleRideSubmit(); return false;"
+                    class="btn-primary" style="width: 100%; margin-top: 1rem;">İlanı Yayınla</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BANÜ-BOT WIDGET -->
+    <div class="chat-widget">
+        <button class="chat-toggle" onclick="toggleChat()" title="BANÜ-Asistan">
+            <svg viewBox="0 0 24 24">
+                <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
+            </svg>
+        </button>
+        <div class="chat-window">
+            <div class="chat-header">
+                <div class="bot-avatar">🤖</div>
+                <div>
+                    <h3>BANÜ-Asistan</h3>
+                    <span>Çevrimiçi</span>
+                </div>
+            </div>
+            <div class="chat-body" id="chatBody">
+                <div class="chat-message bot">
+                    Merhaba! Ben BANÜ-Asistan. 👋<br>Sana nasıl yardımcı olabilirim?
+                </div>
+                <!-- Messages go here -->
+                <div class="typing-indicator" id="typingIndicator">
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                </div>
+            </div>
+            <!-- Quick Replies Container -->
+            <div class="chat-options" id="chatOptions"></div>
+
+            <div class="chat-footer">
+                <input type="text" id="chatInput" class="chat-input" placeholder="Bir şeyler yaz..."
+                    onkeypress="handleChatKey(event)">
+                <button class="chat-send" onclick="sendMessage()">➤</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
