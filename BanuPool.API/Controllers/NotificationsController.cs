@@ -1,90 +1,73 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using BanuPool.Data;
-using BanuPool.Core.Entities;
+using BanuPool.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.Threading.Tasks;
 
 namespace BanuPool.API.Controllers
 {
-    [Route("api/[controller]")]
-    [ApiController]
     [Authorize]
+    [ApiController]
+    [Route("api/[controller]")]
     public class NotificationsController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly INotificationService _notificationService;
 
-        public NotificationsController(AppDbContext context)
+        public NotificationsController(INotificationService notificationService)
         {
-            _context = context;
+            _notificationService = notificationService;
         }
 
         [HttpGet("{userId}")]
-        public async Task<IActionResult> GetUnread(int userId)
+        public async Task<IActionResult> GetNotifications(int userId)
         {
-            var notes = await _context.Notifications
-                .Where(n => n.UserId == userId)
-                .OrderByDescending(n => n.CreatedAt)
-                .Take(20)
-                .ToListAsync();
-            return Ok(notes);
+            // Security check: Match token user ID
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value 
+                              ?? User.FindFirst("UserId")?.Value;
+
+            if (userIdClaim == null || int.Parse(userIdClaim) != userId) return Unauthorized();
+
+            var notifications = await _notificationService.GetUserNotificationsAsync(userId);
+            return Ok(notifications);
         }
 
-        [HttpPut("{id}/read")]
-        public async Task<IActionResult> MarkRead(int id)
+        [HttpPost("{id}/read")]
+        public async Task<IActionResult> MarkAsRead(int id)
         {
-            var note = await _context.Notifications.FindAsync(id);
-            if (note == null) return NotFound();
-
-            note.IsRead = true;
-            await _context.SaveChangesAsync();
+            await _notificationService.MarkAsReadAsync(id);
             return Ok();
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var note = await _context.Notifications.FindAsync(id);
-            if (note == null) return NotFound();
-
-            _context.Notifications.Remove(note);
-            await _context.SaveChangesAsync();
+            await _notificationService.DeleteNotificationAsync(id);
             return Ok();
         }
 
-        [HttpPut("read-all/{userId}")]
-        public async Task<IActionResult> MarkAllRead(int userId)
-        {
-            var notes = await _context.Notifications
-                .Where(n => n.UserId == userId && !n.IsRead)
-                .ToListAsync();
-
-            if (!notes.Any()) return Ok();
-
-            foreach (var note in notes)
-            {
-                note.IsRead = true;
-            }
-            await _context.SaveChangesAsync();
-            await _context.SaveChangesAsync();
-            return Ok();
-        }
-
-        [HttpDelete("delete-all/{userId}")]
+        [HttpDelete("all/{userId}")]
         public async Task<IActionResult> DeleteAll(int userId)
         {
-            var notes = await _context.Notifications
-                .Where(n => n.UserId == userId)
-                .ToListAsync();
+             // Security check
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value 
+                              ?? User.FindFirst("UserId")?.Value;
 
-            if (!notes.Any()) return Ok();
+            if (userIdClaim == null || int.Parse(userIdClaim) != userId) return Unauthorized();
 
-            _context.Notifications.RemoveRange(notes);
-            await _context.SaveChangesAsync();
+            await _notificationService.DeleteAllNotificationsAsync(userId);
             return Ok();
+        }
+        
+        [HttpGet("unread/{userId}")]
+        public async Task<IActionResult> GetUnreadCount(int userId)
+        {
+             // Security check
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value 
+                              ?? User.FindFirst("UserId")?.Value;
+
+            if (userIdClaim == null || int.Parse(userIdClaim) != userId) return Unauthorized();
+
+            var count = await _notificationService.GetUnreadCountAsync(userId);
+            return Ok(new { count });
         }
     }
 }

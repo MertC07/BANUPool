@@ -12,10 +12,12 @@ namespace BanuPool.API.Services
     public class RideService : IRideService
     {
         private readonly AppDbContext _context;
+        private readonly INotificationService _notificationService;
 
-        public RideService(AppDbContext context)
+        public RideService(AppDbContext context, INotificationService notificationService)
         {
             _context = context;
+            _notificationService = notificationService;
         }
 
         public async Task<Ride> CreateRideAsync(Ride ride)
@@ -109,14 +111,14 @@ namespace BanuPool.API.Services
                 
                 // Create Notification for Driver
                 var passenger = await _context.Users.FindAsync(userId);
-                var notification = new Notification
-                {
-                    UserId = ride.DriverId,
-                    Message = $"{passenger?.FirstName ?? "Bir kullanıcı"} ilanınıza rezervasyon yaptı! 🚗",
-                    CreatedAt = DateTime.UtcNow,
-                    IsRead = false
-                };
-                _context.Notifications.Add(notification);
+                
+                await _notificationService.CreateNotificationAsync(
+                    ride.DriverId,
+                    "Yeni Rezervasyon! 🎉",
+                    $"{passenger?.FirstName ?? "Bir kullanıcı"} ilanınıza rezervasyon yaptı! 🚗",
+                    "success",
+                    ride.Id
+                );
 
                 await _context.SaveChangesAsync();
                 return true;
@@ -142,14 +144,13 @@ namespace BanuPool.API.Services
 
                 // Notify Driver about cancellation
                 var passenger = await _context.Users.FindAsync(userId);
-                var notification = new Notification
-                {
-                    UserId = ride.DriverId,
-                    Message = $"{passenger?.FirstName ?? "Bir kullanıcı"} rezervasyonunu iptal etti. ❌",
-                    CreatedAt = DateTime.UtcNow,
-                    IsRead = false
-                };
-                _context.Notifications.Add(notification);
+                await _notificationService.CreateNotificationAsync(
+                    ride.DriverId,
+                    "Rezervasyon İptali ❌",
+                    $"{passenger?.FirstName ?? "Bir kullanıcı"} rezervasyonunu iptal etti.",
+                    "warning",
+                    ride.Id
+                );
             }
 
             await _context.SaveChangesAsync();
@@ -186,8 +187,30 @@ namespace BanuPool.API.Services
 
         public async Task<bool> DeleteRideAsync(int rideId)
         {
-            var ride = await _context.Rides.FindAsync(rideId);
+            var ride = await _context.Rides
+                .Include(r => r.Reservations)
+                .FirstOrDefaultAsync(r => r.Id == rideId);
+                
             if (ride == null) return false;
+
+            // Notify passengers before deleting reservations
+            if (ride.Reservations.Any())
+            {
+                foreach (var reservation in ride.Reservations)
+                {
+                    // Notify Passenger
+                    await _notificationService.CreateNotificationAsync(
+                        reservation.PassengerId,
+                        "İlan İptal Edildi ⚠️",
+                        $"Rezervasyon yaptığınız {ride.Origin} - {ride.Destination} sürüşü sürücü tarafından iptal edildi.",
+                        "error",
+                        null // Ride is being deleted, so no link
+                    );
+                }
+
+                // Remove reservations manually to satisfy Restrict constraint
+                _context.Reservations.RemoveRange(ride.Reservations);
+            }
 
             _context.Rides.Remove(ride);
             await _context.SaveChangesAsync();

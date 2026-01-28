@@ -189,6 +189,22 @@ document.addEventListener('DOMContentLoaded', () => {
             loadRides();
         }
     }
+
+    // CHECK FLASH MESSAGE (Ride Deletion)
+    const delAction = localStorage.getItem('rideAction');
+    if (delAction === 'deleted') {
+        localStorage.removeItem('rideAction');
+        switchTab('my');
+        showToast('İlan başarıyla silindi. 🗑️');
+    } else if (delAction === 'reserved') {
+        localStorage.removeItem('rideAction');
+        switchTab('reservations');
+        showToast('Rezervasyonunuz başarıyla oluşturuldu! 🎟️');
+    } else if (delAction === 'cancelled') {
+        localStorage.removeItem('rideAction');
+        switchTab('reservations');
+        showToast('Rezervasyonunuz iptal edildi. ❌');
+    }
 });
 
 let choicesInstances = [];
@@ -436,8 +452,8 @@ async function cancelSeat(rideId) {
         });
 
         if (res.ok) {
-            showToast('Rezervasyonunuz iptal edildi.');
-            loadMyReservations();
+            localStorage.setItem('rideAction', 'cancelled');
+            window.location.reload();
         } else {
             const txt = await res.text();
             showError('İptal başarısız: ' + txt);
@@ -461,12 +477,31 @@ async function loadRides() {
         const url = currentUserId ? `${API_URL}/rides?userId=${currentUserId}` : `${API_URL}/rides`;
 
         const response = await fetch(url);
+        if (!response.ok) throw new Error('Sunucu hatası: ' + response.status);
         let rides = await response.json();
+
+        if (!Array.isArray(rides)) rides = []; // Safety check
 
         // 1. FILTERING
         if (currentTab === 'my') {
-            rides = rides.filter(r => r.driverId == currentUserId);
+            rides = rides.filter(r => (r.driver && r.driver.id) == currentUserId);
         } else {
+            // HIDE RESERVED RIDES
+            if (currentUserId) {
+                try {
+                    const reservedRes = await fetch(`${API_URL}/rides/passenger/${currentUserId}`, {
+                        headers: { 'Authorization': `Bearer ${checkAuth()}` }
+                    });
+                    if (reservedRes.ok) {
+                        const reservedRides = await reservedRes.json();
+                        const reservedIds = new Set(reservedRides.map(rr => rr.id));
+                        rides = rides.filter(r => !reservedIds.has(r.id));
+                    }
+                } catch (e) {
+                    console.warn("Rezervasyonlar kontrol edilemedi", e);
+                }
+            }
+
             if (originFilter) rides = rides.filter(r => r.origin === originFilter);
             if (destFilter) rides = rides.filter(r => r.destination === destFilter);
             if (maxPrice !== Infinity) rides = rides.filter(r => r.price <= maxPrice);
@@ -512,7 +547,7 @@ async function loadRides() {
 
             const available = ride.totalSeats - ride.reservedSeats;
             const isFull = available <= 0;
-            const isMyRide = ride.driverId == currentUserId;
+            const isMyRide = (ride.driver && ride.driver.id) == currentUserId;
 
             const card = document.createElement('div');
             card.className = 'ride-card';
@@ -575,6 +610,161 @@ async function loadRides() {
     }
 }
 
+// --- NOTIFICATIONS ---
+
+async function initDashboard() {
+    await loadRides();
+    await loadNotifications();
+
+    // Auto-refresh notifications every 30 seconds
+    setInterval(loadNotifications, 30000);
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        const wrapper = document.querySelector('.notification-wrapper');
+        const dropdown = document.getElementById('notificationDropdown');
+        if (wrapper && !wrapper.contains(e.target)) {
+            dropdown.classList.remove('active');
+        }
+    });
+}
+
+function toggleNotifications() {
+    const dropdown = document.getElementById('notificationDropdown');
+    dropdown.classList.toggle('active');
+}
+
+async function loadNotifications() {
+    const userId = getUserId();
+    if (!userId) return;
+
+    try {
+        const res = await fetch(`${API_URL}/notifications/${userId}`, {
+            headers: { 'Authorization': `Bearer ${checkAuth()}` }
+        });
+
+        if (res.ok) {
+            const notifications = await res.json();
+            renderNotifications(notifications);
+            updateBadge(notifications.filter(n => !n.isRead).length);
+        }
+    } catch (err) {
+        console.error("Bildirimler yüklenemedi", err);
+    }
+}
+
+function renderNotifications(notifications) {
+    const list = document.getElementById('notificationList');
+    if (!list) return;
+
+    list.innerHTML = '';
+
+    if (notifications.length === 0) {
+        list.innerHTML = '<div class="notif-empty">Bildiriminiz yok 📭</div>';
+        return;
+    }
+
+    notifications.forEach(n => {
+        const item = document.createElement('div');
+        item.className = `notif-item ${n.isRead ? 'read' : 'unread'}`;
+        item.onclick = () => handleNotificationClick(n);
+
+        const date = new Date(n.createdAt);
+        const timeStr = date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+        const dateStr = date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+
+        // Icon based on type
+        let icon = 'ℹ️';
+        if (n.type === 'success') icon = '✅';
+        if (n.type === 'warning') icon = '⚠️';
+        if (n.type === 'error') icon = '❌';
+
+        item.innerHTML = `
+            <div class="notif-icon-type">${icon}</div>
+            <div class="notif-content">
+                <div class="notif-title">${n.title || 'Bildirim'}</div>
+                <div class="notif-msg">${n.message}</div>
+                <span class="notif-time">${dateStr} ${timeStr}</span>
+            </div>
+            <button class="notif-delete-btn" onclick="deleteNotification(event, ${n.id})">🗑️</button>
+        `;
+
+        list.appendChild(item);
+    });
+}
+
+function updateBadge(count) {
+    const badge = document.getElementById('notificationBadge');
+    if (count > 0) {
+        badge.innerText = count > 9 ? '9+' : count;
+        badge.style.display = 'flex';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+async function handleNotificationClick(notification) {
+    if (!notification.isRead) {
+        try {
+            await fetch(`${API_URL}/notifications/${notification.id}/read`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${checkAuth()}` }
+            });
+            // Reflect change locally immediately
+            notification.isRead = true;
+            loadNotifications(); // Reload to update UI accurately
+        } catch (e) {
+            console.error(e);
+        }
+    }
+}
+
+async function deleteNotification(e, id) {
+    e.stopPropagation(); // Don't trigger click on item
+    if (!confirm('Bu bildirimi silmek istediğinize emin misiniz?')) return;
+
+    try {
+        const res = await fetch(`${API_URL}/notifications/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${checkAuth()}` }
+        });
+        if (res.ok) {
+            loadNotifications();
+        }
+    } catch (err) {
+        showError('Silinemedi');
+    }
+}
+
+async function confirmClearAll() {
+    const result = await Swal.fire({
+        title: 'Tümünü Temizle?',
+        text: "Tüm bildirimleriniz silinecektir!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Evet, Sil!',
+        cancelButtonText: 'İptal'
+    });
+
+    if (result.isConfirmed) {
+        const userId = getUserId();
+        try {
+            const res = await fetch(`${API_URL}/notifications/all/${userId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${checkAuth()}` }
+            });
+            if (res.ok) {
+                loadNotifications();
+                Swal.fire('Temizlendi!', 'Bildirimleriniz silindi.', 'success');
+            }
+        } catch (err) {
+            showError('İşlem başarısız');
+        }
+    }
+}
+
 async function deleteRide(rideId) {
     const token = checkAuth();
 
@@ -600,8 +790,8 @@ async function deleteRide(rideId) {
         });
 
         if (response.ok) {
-            showToast('İlan başarıyla kaldırıldı.');
-            loadRides();
+            localStorage.setItem('rideAction', 'deleted');
+            window.location.reload();
         } else {
             // Show specific error if backend returns one
             const errorText = await response.text();
@@ -1189,8 +1379,8 @@ async function reserveRide(rideId) {
             method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
-            showToast('Yer ayrıldı!');
-            loadRides();
+            localStorage.setItem('rideAction', 'reserved');
+            window.location.reload();
         } else {
             const txt = await res.text();
             showError(txt);

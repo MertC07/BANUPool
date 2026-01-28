@@ -3,6 +3,7 @@ using BanuPool.Core.Entities;
 using BanuPool.Core.Interfaces;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace BanuPool.API.Controllers
 {
@@ -20,14 +21,56 @@ namespace BanuPool.API.Controllers
         [HttpPost]
         public async Task<ActionResult<Ride>> CreateRide(Ride ride)
         {
+            // Security: Enforce DriverId from Token
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value 
+                              ?? User.FindFirst("UserId")?.Value;
+            
+            if (userIdClaim == null) return Unauthorized();
+            
+            ride.DriverId = int.Parse(userIdClaim);
+
             var createdRide = await _rideService.CreateRideAsync(ride);
             return CreatedAtAction(nameof(GetRide), new { id = createdRide.Id }, createdRide);
         }
 
         [HttpGet]
-        public async Task<IEnumerable<Ride>> SearchRides([FromQuery] string? origin, [FromQuery] string? destination, [FromQuery] int? userId)
+        public async Task<ActionResult<IEnumerable<BanuPool.API.DTOs.RideDto>>> SearchRides([FromQuery] string? origin, [FromQuery] string? destination, [FromQuery] int? userId)
         {
-            return await _rideService.SearchRidesAsync(origin ?? "", destination ?? "", userId);
+            try
+            {
+                var rides = await _rideService.SearchRidesAsync(origin ?? "", destination ?? "", userId);
+                
+                // Map to DTO to prevent JSON Cycles and hide sensitive data
+                var dtos = rides.Select(r => new BanuPool.API.DTOs.RideDto
+                {
+                    Id = r.Id,
+                    Origin = r.Origin,
+                    Destination = r.Destination,
+                    DepartureTime = r.DepartureTime,
+                    Price = r.Price,
+                    TotalSeats = r.TotalSeats,
+                    ReservedSeats = r.ReservedSeats,
+                    Driver = new BanuPool.API.DTOs.RideDriverDto
+                    {
+                        Id = r.Driver?.Id ?? 0,
+                        FirstName = r.Driver?.FirstName ?? "Unknown",
+                        LastName = r.Driver?.LastName ?? "User",
+                        PhoneNumber = r.Driver?.PhoneNumber ?? ""
+                    },
+                    Vehicle = r.Vehicle != null ? new BanuPool.API.DTOs.VehicleDto
+                    {
+                        PlateNumber = r.Vehicle.PlateNumber,
+                        Model = r.Vehicle.Model,
+                        Color = r.Vehicle.Color
+                    } : null
+                }).ToList(); // Execute immediately to catch mapping errors here
+
+                return Ok(dtos);
+            }
+            catch (System.Exception ex)
+            {
+                return BadRequest(new { error = $"Server Error: {ex.Message}" });
+            }
         }
 
         [HttpGet("{id}")]

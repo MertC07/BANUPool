@@ -22,12 +22,27 @@
     </script>
 </head>
 
-<body onload="loadRides()">
+<body onload="initDashboard()">
     <nav>
         <a href="index.html" class="logo">BANÜ-Pool</a>
         <div class="nav-links">
             <a href="index.html">Ana Sayfa</a>
             <a href="dashboard.html" class="active">İlanlar</a>
+
+            <div class="notification-wrapper" onclick="toggleNotifications()">
+                <div class="notification-icon">🔔</div>
+                <div id="notificationBadge" class="notification-badge" style="display: none;">0</div>
+
+                <div id="notificationDropdown" class="notification-dropdown" onclick="event.stopPropagation()">
+                    <div class="notif-header">
+                        <h4>Bildirimler</h4>
+                        <button onclick="confirmClearAll()" class="clear-all-btn">Tümünü Temizle</button>
+                    </div>
+                    <div id="notificationList" class="notif-list">
+                        <div class="notif-empty">Bildiriminiz yok</div>
+                    </div>
+                </div>
+            </div>
             <a href="#" onclick="logout()">Çıkış Yap</a>
         </div>
     </nav>
