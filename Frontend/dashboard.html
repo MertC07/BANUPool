@@ -13,7 +13,7 @@
     <script src="https://npmcdn.com/flatpickr/dist/l10n/tr.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+
     <script>
         // Strict Auth Check - Run immediately
         const token = sessionStorage.getItem('token') || localStorage.getItem('token');
@@ -30,20 +30,7 @@
             <a href="index.html">Ana Sayfa</a>
             <a href="dashboard.html" class="active">İlanlar</a>
 
-            <div class="notification-wrapper" onclick="toggleNotifications()">
-                <div class="notification-icon">🔔</div>
-                <div id="notificationBadge" class="notification-badge" style="display: none;">0</div>
 
-                <div id="notificationDropdown" class="notification-dropdown" onclick="event.stopPropagation()">
-                    <div class="notif-header">
-                        <h4>Bildirimler</h4>
-                        <button onclick="confirmClearAll()" class="clear-all-btn">Tümünü Temizle</button>
-                    </div>
-                    <div id="notificationList" class="notif-list">
-                        <div class="notif-empty">Bildiriminiz yok</div>
-                    </div>
-                </div>
-            </div>
             <a href="#" onclick="logout()">Çıkış Yap</a>
         </div>
     </nav>

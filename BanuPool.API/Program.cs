@@ -15,7 +15,7 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
 builder.Services.AddOpenApi();
-builder.Services.AddSignalR(); // Add SignalR
+builder.Services.AddOpenApi();
 
 // Database Context
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -25,16 +25,14 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IRideService, RideService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<INotificationService, NotificationService>();
 
 // CORS Configuration
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll",
-        b => b.WithOrigins("http://127.0.0.1:5500", "http://localhost:5500") // Must specify origin for AllowCredentials
+        b => b.AllowAnyOrigin()
               .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials()); // Required for SignalR Auth
+              .AllowAnyHeader());
 });
 
 // Authentication Configuration
@@ -61,20 +59,7 @@ builder.Services.AddAuthentication(options =>
     };
     
     // SignalR Token Handling (Query String)
-    options.Events = new JwtBearerEvents
-    {
-        OnMessageReceived = context =>
-        {
-            var accessToken = context.Request.Query["access_token"];
-            var path = context.HttpContext.Request.Path;
-            if (!string.IsNullOrEmpty(accessToken) &&
-                (path.StartsWithSegments("/notificationHub")))
-            {
-                context.Token = accessToken;
-            }
-            return Task.CompletedTask;
-        }
-    };
+
 });
 
 var app = builder.Build();
@@ -115,6 +100,6 @@ app.UseAuthentication(); // Enable Auth
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHub<BanuPool.API.Hubs.NotificationHub>("/notificationHub");
+
 
 app.Run();

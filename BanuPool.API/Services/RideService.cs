@@ -12,12 +12,11 @@ namespace BanuPool.API.Services
     public class RideService : IRideService
     {
         private readonly AppDbContext _context;
-        private readonly INotificationService _notificationService;
 
-        public RideService(AppDbContext context, INotificationService notificationService)
+
+        public RideService(AppDbContext context)
         {
             _context = context;
-            _notificationService = notificationService;
         }
 
         public async Task<Ride> CreateRideAsync(Ride ride)
@@ -118,17 +117,8 @@ namespace BanuPool.API.Services
                 ride.Status = BanuPool.Core.Enums.RideStatus.HasPassengers;
                 _context.Entry(ride).State = EntityState.Modified;
                 
-                // Create Notification for Driver
-                var passenger = await _context.Users.FindAsync(userId);
+                // Create Notification for Driver - REMOVED
                 
-                await _notificationService.CreateNotificationAsync(
-                    ride.DriverId,
-                    "Yeni Rezervasyon! 🎉",
-                    $"{passenger?.FirstName ?? "Bir kullanıcı"} ilanınıza rezervasyon yaptı! 🚗",
-                    "success",
-                    ride.Id
-                );
-
                 await _context.SaveChangesAsync();
                 return true;
             }
@@ -155,15 +145,9 @@ namespace BanuPool.API.Services
                 }
                 _context.Entry(ride).State = EntityState.Modified;
 
-                // Notify Driver about cancellation
-                var passenger = await _context.Users.FindAsync(userId);
-                await _notificationService.CreateNotificationAsync(
-                    ride.DriverId,
-                    "Rezervasyon İptali ❌",
-                    $"{passenger?.FirstName ?? "Bir kullanıcı"} rezervasyonunu iptal etti.",
-                    "warning",
-                    ride.Id
-                );
+                // Notify Driver about cancellation - REMOVED
+
+                // Notify Passenger (Confirmation) - REMOVED
             }
 
             await _context.SaveChangesAsync();
@@ -212,21 +196,9 @@ namespace BanuPool.API.Services
                 
             if (ride == null) return false;
 
-            // Notify passengers before deleting reservations
+            // Notify passengers before deleting reservations - Notifications REMOVED
             if (ride.Reservations.Any())
             {
-                foreach (var reservation in ride.Reservations)
-                {
-                    // Notify Passenger
-                    await _notificationService.CreateNotificationAsync(
-                        reservation.PassengerId,
-                        "İlan İptal Edildi ⚠️",
-                        $"Rezervasyon yaptığınız {ride.Origin} - {ride.Destination} sürüşü sürücü tarafından iptal edildi.",
-                        "error",
-                        null // Ride is being deleted, so no link
-                    );
-                }
-
                 // Remove reservations manually to satisfy Restrict constraint
                 _context.Reservations.RemoveRange(ride.Reservations);
             }
@@ -336,17 +308,7 @@ namespace BanuPool.API.Services
                     _context.Entry(ride.Driver).State = EntityState.Modified;
                 }
 
-                // 2. Notify Passengers
-                foreach (var res in ride.Reservations)
-                {
-                     await _notificationService.CreateNotificationAsync(
-                        res.PassengerId,
-                        "Yolculuk İptali ⚠️",
-                        $"Sürücü yolculuğu iptal etti. Neden: {reason}",
-                        "error",
-                        ride.Id
-                    );
-                }
+// 2. Notify Passengers - REMOVED
             }
 
             // 3. Update Status

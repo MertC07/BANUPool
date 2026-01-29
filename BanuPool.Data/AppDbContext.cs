@@ -15,7 +15,7 @@ namespace BanuPool.Data
         public DbSet<Reservation> Reservations { get; set; }
 
         public DbSet<Review> Reviews { get; set; }
-        public DbSet<Notification> Notifications { get; set; }
+
         
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -63,11 +63,7 @@ namespace BanuPool.Data
                 .OnDelete(DeleteBehavior.Cascade);
 
             // Notification
-            modelBuilder.Entity<Notification>()
-                .HasOne(n => n.User)
-                .WithMany()
-                .HasForeignKey(n => n.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
+
         }
     }
 }

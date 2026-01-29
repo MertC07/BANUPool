@@ -114,6 +114,7 @@ namespace BanuPool.API.Services
             var claims = new[]
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), // Explicitly for SignalR
                 new Claim(JwtRegisteredClaimNames.Email, user.Email),
                 new Claim("UserType", user is Student ? "Student" : "Academician")
             };

@@ -138,28 +138,7 @@ function updateNavigation() {
             <a href="dashboard.html" class="${isDashboard ? 'active' : ''}">İlanlar</a>
             <a href="profile.html" class="${isProfile ? 'active' : ''}">Profilim</a>
             
-            <!-- Notification Wrapper -->
-            <div class="notification-wrapper" style="position: relative;">
-                <a href="javascript:void(0)" class="nav-icon-btn" onclick="toggleNotifications(event)">
-                    🔔
-                    <span id="notif-badge" class="badge" style="display:none;">0</span>
-                </a>
-                
-                <!-- Gmail Style Dropdown -->
-                <div id="notificationDropdown" class="notification-dropdown">
-                    <div class="dropdown-header">
-                        <span class="header-title">Bildirimler</span>
-                        <button onclick="markAllNotificationsRead(event)" class="header-action">Tümünü okundu işaretle</button>
-                    </div>
-                    <div id="notificationList" class="dropdown-content">
-                        <!-- Items injected here -->
-                        <div class="notif-loading">Yükleniyor...</div>
-                    </div>
-                    <div class="dropdown-footer">
-                         <!-- Optional footer -->
-                    </div>
-                </div>
-            </div>
+
 
             <a href="javascript:void(0)" onclick="logout()">Çıkış Yap</a>
         `;
@@ -815,30 +794,6 @@ async function initDashboard() {
     }
 
     await loadRides();
-
-    // Initial load
-    await loadNotifications();
-
-    // Poll every 30s
-    // Initial load only - NO POLLING
-    await loadNotifications();
-
-    // Global click listener to close dropdown
-    document.addEventListener('click', (e) => {
-        const wrapper = document.querySelector('.notification-wrapper');
-        const dropdown = document.getElementById('notificationDropdown');
-        if (wrapper && !wrapper.contains(e.target) && dropdown.classList.contains('active')) {
-            dropdown.classList.remove('active');
-        }
-    });
-
-    // CRITICAL: Stop propagation from inside the dropdown to prevent closing
-    const dropdown = document.getElementById('notificationDropdown');
-    if (dropdown) {
-        dropdown.addEventListener('click', (e) => {
-            e.stopPropagation();
-        });
-    }
 }
 
 // --- NOTIFICATIONS CORE LOGIC ---
@@ -2222,177 +2177,11 @@ async function markAllReadSilent() {
     } catch (e) { console.error(e); }
 }
 
-window.confirmDeleteAll = function () {
-    Swal.fire({
-        title: 'Tümünü Temizle?',
-        text: "Tüm bildirimleriniz kalıcı olarak silinecek.",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#ef4444',
-        cancelButtonColor: '#aaa',
-        confirmButtonText: 'Evet, Sil',
-        cancelButtonText: 'Vazgeç',
-        target: '.swal-notif-popup' // Attempt to stack over existing if possible, or it replaces it.
-    }).then((result) => {
-        if (result.isConfirmed) {
-            deleteAllNotifications();
-        } else {
-            // Re-open notifications if cancelled? 
-            // Better: User just cancelled, they can re-open.
-            // Or use chaining.
-            showNotifications();
-        }
-    });
-};
+// --- SIGNALR REMOVED ---
 
-async function deleteAllNotifications() {
-    const token = checkAuth();
-    const userId = getUserId();
-    if (!token) return;
-    try {
-        await fetch(`${API_URL}/notifications/delete-all/${userId}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        showToast('Bildirimler temizlendi.');
-        checkNotifications(); // Updates badge and list
-    } catch (e) { console.error(e); }
-}
 
-window.deleteNotification = async function (id) {
-    const token = checkAuth();
-    if (!token) return;
-    try {
-        await fetch(`${API_URL}/notifications/${id}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const item = document.getElementById(`notif-${id}`);
-        if (item) item.remove();
-        checkNotifications();
-    } catch (e) { console.error(e); }
-};
 
-// --- SIGNALR REAL-TIME NOTIFICATIONS ---
-let connection = null;
 
-async function initializeSignalR() {
-    const token = checkAuth();
-    if (!token) return;
-
-    if (connection && connection.state === signalR.HubConnectionState.Connected) return;
-
-    connection = new signalR.HubConnectionBuilder()
-        .withUrl(`${API_URL.replace('/api', '')}/notificationHub`, {
-            accessTokenFactory: () => checkAuth()
-        })
-        .withAutomaticReconnect()
-        .build();
-
-    // Event Handler: Receive Notification
-    connection.on("ReceiveNotification", (notification) => {
-        console.log("New Notification:", notification);
-
-        // 1. Show Toast
-        showToast(notification.title || "Yeni Bildirim", "info");
-
-        // 2. Play Sound (Optional - might be blocked by browser)
-        // const audio = new Audio('assets/notification.mp3'); 
-        // audio.play().catch(e => console.log('Audio play failed', e));
-
-        // 3. Update Badge
-        if (typeof globalUnreadCount !== 'undefined') {
-            globalUnreadCount++;
-            updateBadge(globalUnreadCount);
-        }
-
-        // 4. Prepend to List if it exists
-        const list = document.getElementById('notificationList');
-        if (list) {
-            // Remove "Empty" loading/message if exists
-            const emptyMsg = list.querySelector('.notif-loading') || list.querySelector('.notif-empty');
-            if (emptyMsg) emptyMsg.remove();
-
-            const item = createNotificationItem(notification);
-            list.prepend(item);
-        }
-    });
-
-    try {
-        await connection.start();
-        console.log("SignalR Connected!");
-    } catch (err) {
-        console.error("SignalR Connection Failed: ", err);
-    }
-}
-
-function createNotificationItem(n) {
-    const item = document.createElement('div');
-    item.className = `notif-item ${n.isRead ? 'read' : 'unread'}`;
-    item.dataset.id = n.id;
-
-    // Content Container
-    const left = document.createElement('div');
-    left.className = 'notif-left';
-    left.innerHTML = `
-        ${getIconHtml(n.type)}
-        <div class="notif-content">
-            <div class="notif-title">${n.title || 'Bildirim'}</div>
-            <div class="notif-message">${n.message}</div>
-            <div class="notif-date">${getDateDisplay(n.createdAt || new Date())}</div>
-        </div>
-    `;
-    left.onclick = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        handleNotificationClick(n.id, n.isRead);
-    };
-
-    // Actions Container
-    const actions = document.createElement('div');
-    actions.className = 'notif-actions';
-
-    // Delete Button
-    const deleteBtn = document.createElement('button');
-    deleteBtn.type = 'button';
-    deleteBtn.className = 'notif-action-btn delete-btn';
-    deleteBtn.title = 'Sil';
-    deleteBtn.innerHTML = '🗑️';
-    deleteBtn.onclick = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        removeNotification(e, n.id);
-    };
-    actions.appendChild(deleteBtn);
-
-    // Mark Read Button (if unread)
-    if (!n.isRead) {
-        const readBtn = document.createElement('button');
-        readBtn.type = 'button';
-        readBtn.className = 'notif-action-btn read-btn';
-        readBtn.title = 'Okundu işaretle';
-        readBtn.innerHTML = '📩';
-        readBtn.onclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            markAsRead(e, n.id);
-        };
-        actions.appendChild(readBtn);
-    }
-
-    item.appendChild(left);
-    item.appendChild(actions);
-    return item;
-}
-
-// Start SignalR if user is logged in (Safe check, no redirect)
-const savedToken = sessionStorage.getItem('token') || localStorage.getItem('token');
-if (savedToken) {
-    // Initial fetch to populate list
-    loadNotifications();
-    // Start Real-time
-    initializeSignalR();
-}
 
 // --- LOGIN LOGIC (Safe Append) ---
 document.addEventListener('DOMContentLoaded', () => {

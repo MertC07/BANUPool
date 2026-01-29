@@ -1,0 +1,15 @@
+﻿  Geri y├╝klenecek projeler belirleniyor...
+  Geri y├╝kleme i├ğin t├╝m projeler g├╝ncel.
+  BanuPool.Core -> C:\Users\mertc\OneDrive\Masa├╝st├╝\Yaz─▒l─▒m\denemeYazilim\BanuPool.Core\bin\Debug\net10.0\BanuPool.Core.dll
+  BanuPool.Data -> C:\Users\mertc\OneDrive\Masa├╝st├╝\Yaz─▒l─▒m\denemeYazilim\BanuPool.Data\bin\Debug\net10.0\BanuPool.Data.dll
+C:\Users\mertc\OneDrive\Masa├╝st├╝\Yaz─▒l─▒m\denemeYazilim\BanuPool.API\Controllers\NotificationsController.cs(13,26): error CS0246: 'INotificationService' t├╝r├╝ veya ad alan─▒ ad─▒ bulunamad─▒ (bir using y├Ânergeniz veya derleme ba┼şvurunuz mu eksik?) [C:\Users\mertc\OneDrive\Masa├╝st├╝\Yaz─▒l─▒m\denemeYazilim\BanuPool.API\BanuPool.API.csproj]
+C:\Users\mertc\OneDrive\Masa├╝st├╝\Yaz─▒l─▒m\denemeYazilim\BanuPool.API\Controllers\NotificationsController.cs(15,40): error CS0246: 'INotificationService' t├╝r├╝ veya ad alan─▒ ad─▒ bulunamad─▒ (bir using y├Ânergeniz veya derleme ba┼şvurunuz mu eksik?) [C:\Users\mertc\OneDrive\Masa├╝st├╝\Yaz─▒l─▒m\denemeYazilim\BanuPool.API\BanuPool.API.csproj]
+
+Olu┼şturma BA┼ŞARISIZ OLDU.
+
+C:\Users\mertc\OneDrive\Masa├╝st├╝\Yaz─▒l─▒m\denemeYazilim\BanuPool.API\Controllers\NotificationsController.cs(13,26): error CS0246: 'INotificationService' t├╝r├╝ veya ad alan─▒ ad─▒ bulunamad─▒ (bir using y├Ânergeniz veya derleme ba┼şvurunuz mu eksik?) [C:\Users\mertc\OneDrive\Masa├╝st├╝\Yaz─▒l─▒m\denemeYazilim\BanuPool.API\BanuPool.API.csproj]
+C:\Users\mertc\OneDrive\Masa├╝st├╝\Yaz─▒l─▒m\denemeYazilim\BanuPool.API\Controllers\NotificationsController.cs(15,40): error CS0246: 'INotificationService' t├╝r├╝ veya ad alan─▒ ad─▒ bulunamad─▒ (bir using y├Ânergeniz veya derleme ba┼şvurunuz mu eksik?) [C:\Users\mertc\OneDrive\Masa├╝st├╝\Yaz─▒l─▒m\denemeYazilim\BanuPool.API\BanuPool.API.csproj]
+    0 Uyar─▒
+    2 Hata
+
+Ge├ğen S├╝re 00:00:01.55
