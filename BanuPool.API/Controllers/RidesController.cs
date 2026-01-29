@@ -128,5 +128,17 @@ namespace BanuPool.API.Controllers
         {
             return await _rideService.GetRidesForPassengerAsync(userId);
         }
+        [HttpGet("driver/{userId}")]
+        public async Task<ActionResult<IEnumerable<Ride>>> GetDriverRides(int userId)
+        {
+            // Security check
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value 
+                              ?? User.FindFirst("UserId")?.Value;
+            
+            if (userIdClaim == null || int.Parse(userIdClaim) != userId) return Unauthorized();
+
+            var rides = await _rideService.GetRidesForDriverAsync(userId);
+            return Ok(rides);
+        }
     }
 }

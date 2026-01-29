@@ -82,6 +82,10 @@ namespace BanuPool.API.Services
                 query = query.Where(r => !r.Reservations.Any(res => res.PassengerId == currentUserId.Value));
             }
 
+            // LIFECYCLE: Exclude expired rides from public search
+            // If user searches, they should only see future rides.
+            query = query.Where(r => r.DepartureTime > DateTime.UtcNow);
+
             return await query.ToListAsync();
         }
 
@@ -237,6 +241,17 @@ namespace BanuPool.API.Services
                 .ToListAsync();
             
             return rides;
+        }
+
+        public async Task<IEnumerable<Ride>> GetRidesForDriverAsync(int driverId)
+        {
+            return await _context.Rides
+                .Include(r => r.Vehicle)
+                .Include(r => r.Reservations)
+                .ThenInclude(res => res.Passenger)
+                .Where(r => r.DriverId == driverId)
+                .OrderByDescending(r => r.DepartureTime) // Show newest (or future) first, but typically list all
+                .ToListAsync();
         }
     }
 }

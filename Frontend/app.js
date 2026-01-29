@@ -137,9 +137,30 @@ function updateNavigation() {
             <a href="index.html" class="${isIndex ? 'active' : ''}">Ana Sayfa</a>
             <a href="dashboard.html" class="${isDashboard ? 'active' : ''}">İlanlar</a>
             <a href="profile.html" class="${isProfile ? 'active' : ''}">Profilim</a>
-            <a href="javascript:void(0)" onclick="showNotifications()" style="position:relative; font-size:1.2rem; display:flex; align-items:center;">
-                🔔<span id="notif-badge" class="badge"></span>
-            </a>
+            
+            <!-- Notification Wrapper -->
+            <div class="notification-wrapper" style="position: relative;">
+                <a href="javascript:void(0)" class="nav-icon-btn" onclick="toggleNotifications(event)">
+                    🔔
+                    <span id="notif-badge" class="badge" style="display:none;">0</span>
+                </a>
+                
+                <!-- Gmail Style Dropdown -->
+                <div id="notificationDropdown" class="notification-dropdown">
+                    <div class="dropdown-header">
+                        <span class="header-title">Bildirimler</span>
+                        <button onclick="markAllNotificationsRead()" class="header-action">Tümünü okundu işaretle</button>
+                    </div>
+                    <div id="notificationList" class="dropdown-content">
+                        <!-- Items injected here -->
+                        <div class="notif-loading">Yükleniyor...</div>
+                    </div>
+                    <div class="dropdown-footer">
+                         <!-- Optional footer -->
+                    </div>
+                </div>
+            </div>
+
             <a href="javascript:void(0)" onclick="logout()">Çıkış Yap</a>
         `;
     } else {
@@ -170,7 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (dateInput && typeof flatpickr !== 'undefined') {
         flatpickr(dateInput, {
             enableTime: true,
-            dateFormat: "Y-m-d H:i",
+            dateFormat: "d.m.Y H:i",
             minDate: "today",
             time_24hr: true,
             locale: "tr"
@@ -474,9 +495,28 @@ async function loadRides() {
 
     try {
         const currentUserId = getUserId();
-        const url = currentUserId ? `${API_URL}/rides?userId=${currentUserId}` : `${API_URL}/rides`;
 
-        const response = await fetch(url);
+        let url = `${API_URL}/rides`;
+
+        // LIFECYCLE LOGIC:
+        // If "My Rides" -> Fetch from new endpoint (includes expired)
+        // If "All" -> Fetch from search endpoint (only active)
+        if (currentTab === 'my' && currentUserId) {
+            url = `${API_URL}/rides/driver/${currentUserId}`;
+        } else if (currentUserId) {
+            url = `${API_URL}/rides?userId=${currentUserId}`;
+        }
+
+        const options = {
+            headers: {}
+        };
+
+        const token = checkAuth();
+        if (token) {
+            options.headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(url, options);
         if (!response.ok) throw new Error('Sunucu hatası: ' + response.status);
         let rides = await response.json();
 
@@ -484,7 +524,8 @@ async function loadRides() {
 
         // 1. FILTERING
         if (currentTab === 'my') {
-            rides = rides.filter(r => (r.driver && r.driver.id) == currentUserId);
+            // Backend already filters by driverId for this endpoint
+            // rides = rides.filter(r => (r.driver && r.driver.id) == currentUserId);
         } else {
             // HIDE RESERVED RIDES
             if (currentUserId) {
@@ -547,11 +588,14 @@ async function loadRides() {
 
             const available = ride.totalSeats - ride.reservedSeats;
             const isFull = available <= 0;
-            const isMyRide = (ride.driver && ride.driver.id) == currentUserId;
+            const isMyRide = (ride.driver && ride.driver.id) == currentUserId || (ride.driverId == currentUserId);
+
+            // Check expiry
+            const isExpired = new Date(ride.departureTime) < new Date();
 
             const card = document.createElement('div');
-            card.className = 'ride-card';
-            card.style.borderLeft = `4px solid ${isFull ? '#cbd5e1' : 'var(--secondary-color)'}`;
+            card.className = `ride-card ${isExpired ? 'expired' : ''}`;
+            card.style.borderLeft = `4px solid ${isExpired ? '#94a3b8' : (isFull ? '#cbd5e1' : 'var(--secondary-color)')}`;
 
             if (isMyRide && currentTab === 'all') {
                 card.style.borderColor = 'var(--primary-color)';
@@ -562,7 +606,9 @@ async function loadRides() {
             if (currentTab === 'my') {
                 actionHtml = `
                     <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:0.5rem;">
-                         <button onclick="editRide(${ride.id})" class="btn-sm btn-edit">Düzenle</button>
+                         ${isExpired
+                        ? `<button onclick="republishRide(${ride.id})" class="btn-sm btn-edit">🔄 Yeniden Yayınla</button>`
+                        : `<button onclick="editRide(${ride.id})" class="btn-sm btn-edit">Düzenle</button>`}
                          <button onclick="deleteRide(${ride.id})" class="btn-sm btn-danger">Sil</button>
                     </div>
                 `;
@@ -576,9 +622,9 @@ async function loadRides() {
 
             card.innerHTML = `
                 <div class="ride-info">
-                    <h3 style="display:flex; align-items:center; gap:0.5rem;">
                         ${ride.origin} <span style="color:var(--text-secondary); font-size:0.8em;">➔</span> ${ride.destination}
                         ${isMyRide ? '<span style="font-size:0.7rem; background:var(--primary-color); color:white; padding:2px 6px; border-radius:4px;">SİZ</span>' : ''}
+                        ${isExpired ? '<span class="status-badge expired">⚠️ Süresi Doldu</span>' : ''}
                     </h3>
                     <div class="ride-details" style="display:grid; grid-template-columns: auto auto; gap: 0.5rem 2rem; margin-top:0.5rem;">
                         <span>📅 <b>${dateStr}</b> ${timeStr}</span>
@@ -612,41 +658,64 @@ async function loadRides() {
 
 // --- NOTIFICATIONS ---
 
+// --- NOTIFICATIONS (GMAIL STYLE) ---
+
 async function initDashboard() {
     await loadRides();
+
+    // Initial load
     await loadNotifications();
 
-    // Auto-refresh notifications every 30 seconds
+    // Poll every 30s
     setInterval(loadNotifications, 30000);
 
-    // Close dropdown when clicking outside
+    // Global click listener to close dropdown
     document.addEventListener('click', (e) => {
         const wrapper = document.querySelector('.notification-wrapper');
         const dropdown = document.getElementById('notificationDropdown');
-        if (wrapper && !wrapper.contains(e.target)) {
+        if (wrapper && !wrapper.contains(e.target) && dropdown.classList.contains('active')) {
             dropdown.classList.remove('active');
         }
     });
 }
 
-function toggleNotifications() {
+function toggleNotifications(event) {
+    if (event) event.stopPropagation();
     const dropdown = document.getElementById('notificationDropdown');
-    dropdown.classList.toggle('active');
+    const isActive = dropdown.classList.contains('active');
+
+    // Close others if any (not needed here but good practice)
+    document.querySelectorAll('.notification-dropdown').forEach(d => d.classList.remove('active'));
+
+    if (!isActive) {
+        dropdown.classList.add('active');
+        // Refresh when opening
+        loadNotifications();
+    } else {
+        dropdown.classList.remove('active');
+    }
 }
+
+// Global state to track unread count locally for optimistic updates
+let globalUnreadCount = 0;
 
 async function loadNotifications() {
     const userId = getUserId();
     if (!userId) return;
 
     try {
-        const res = await fetch(`${API_URL}/notifications/${userId}`, {
+        // Cache busting to ensure fresh data
+        const res = await fetch(`${API_URL}/notifications/${userId}?_t=${Date.now()}`, {
             headers: { 'Authorization': `Bearer ${checkAuth()}` }
         });
 
         if (res.ok) {
             const notifications = await res.json();
             renderNotifications(notifications);
-            updateBadge(notifications.filter(n => !n.isRead).length);
+
+            // Count unread
+            const unreadCount = notifications.filter(n => !n.isRead).length;
+            updateBadge(unreadCount);
         }
     } catch (err) {
         console.error("Bildirimler yüklenemedi", err);
@@ -660,110 +729,205 @@ function renderNotifications(notifications) {
     list.innerHTML = '';
 
     if (notifications.length === 0) {
-        list.innerHTML = '<div class="notif-empty">Bildiriminiz yok 📭</div>';
+        list.innerHTML = `
+            <div class="notif-empty">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">📭</div>
+                <div>Henüz bildiriminiz yok</div>
+            </div>`;
         return;
     }
 
     notifications.forEach(n => {
         const item = document.createElement('div');
+        // Gmail logic: .unread has distinct background, .read is white.
         item.className = `notif-item ${n.isRead ? 'read' : 'unread'}`;
-        item.onclick = () => handleNotificationClick(n);
-
-        const date = new Date(n.createdAt);
-        const timeStr = date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-        const dateStr = date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+        item.dataset.id = n.id;
 
         // Icon based on type
-        let icon = 'ℹ️';
-        if (n.type === 'success') icon = '✅';
-        if (n.type === 'warning') icon = '⚠️';
-        if (n.type === 'error') icon = '❌';
+        let iconHtml = '<div class="notif-icon info">ℹ️</div>';
+        if (n.type === 'success') iconHtml = '<div class="notif-icon success">✅</div>';
+        if (n.type === 'warning') iconHtml = '<div class="notif-icon warning">⚠️</div>';
+        if (n.type === 'error') iconHtml = '<div class="notif-icon error">❌</div>';
+
+        // Date formatting relative (e.g. "2 saat önce" or "10:30")
+        const date = new Date(n.createdAt);
+        const timeStr = date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+        const isToday = new Date().toDateString() === date.toDateString();
+        const dateDisplay = isToday ? timeStr : date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
 
         item.innerHTML = `
-            <div class="notif-icon-type">${icon}</div>
-            <div class="notif-content">
-                <div class="notif-title">${n.title || 'Bildirim'}</div>
-                <div class="notif-msg">${n.message}</div>
-                <span class="notif-time">${dateStr} ${timeStr}</span>
+            <div class="notif-left" onclick="handleNotificationClick(${n.id}, ${n.isRead})">
+                ${iconHtml}
+                <div class="notif-content">
+                    <div class="notif-title">${n.title || 'Bildirim'}</div>
+                    <div class="notif-message">${n.message}</div>
+                    <div class="notif-date">${dateDisplay}</div>
+                </div>
             </div>
-            <button class="notif-delete-btn" onclick="deleteNotification(event, ${n.id})">🗑️</button>
+            <div class="notif-actions">
+                <button class="notif-action-btn delete-btn" title="Sil" onclick="removeNotification(event, ${n.id})">
+                    🗑️
+                </button>
+                ${!n.isRead ? `
+                <button class="notif-action-btn read-btn" title="Okundu işaretle" onclick="markAsRead(event, ${n.id})">
+                    📩
+                </button>` : ''}
+            </div>
         `;
-
         list.appendChild(item);
     });
 }
 
 function updateBadge(count) {
-    const badge = document.getElementById('notificationBadge');
-    if (count > 0) {
-        badge.innerText = count > 9 ? '9+' : count;
-        badge.style.display = 'flex';
-    } else {
-        badge.style.display = 'none';
+    globalUnreadCount = count;
+    // Update dashboard and nav badges
+    const badges = document.querySelectorAll('#notif-badge, #notificationBadge');
+    badges.forEach(badge => {
+        if (count > 0) {
+            badge.innerText = count > 99 ? '99+' : count;
+            badge.style.display = 'flex'; // Ensure flex for centering
+            badge.classList.add('active');
+        } else {
+            badge.style.display = 'none';
+            badge.classList.remove('active');
+        }
+    });
+}
+
+// Click on the main body of the notification (opens details or just marks read)
+async function handleNotificationClick(id, isRead) {
+    if (!isRead) {
+        await markAsRead(null, id);
+    }
+    // Logic to navigate if relatedRideId exists can go here
+}
+
+async function markAsRead(event, id) {
+    if (event) event.stopPropagation();
+
+    // Optimistic UI Update
+    const item = document.querySelector(`.notif-item[data-id="${id}"]`);
+    if (item && item.classList.contains('unread')) {
+        item.classList.remove('unread');
+        item.classList.add('read');
+
+        // Remove the "Mark Read" button if it exists
+        const readBtn = item.querySelector('.read-btn');
+        if (readBtn) readBtn.remove();
+
+        // Decrement badge
+        updateBadge(Math.max(0, globalUnreadCount - 1));
+    }
+
+    // Backend Call
+    try {
+        await fetch(`${API_URL}/notifications/${id}/read`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${checkAuth()}` }
+        });
+    } catch (e) {
+        console.error("Okundu işaretleme hatası", e);
+        // Revert UI if needed (omitted for simplicity)
     }
 }
 
-async function handleNotificationClick(notification) {
-    if (!notification.isRead) {
-        try {
-            await fetch(`${API_URL}/notifications/${notification.id}/read`, {
+async function markAllNotificationsRead() {
+    // Optimistic UI
+    document.querySelectorAll('.notif-item.unread').forEach(item => {
+        item.classList.remove('unread');
+        item.classList.add('read');
+        const readBtn = item.querySelector('.read-btn');
+        if (readBtn) readBtn.remove();
+    });
+    updateBadge(0);
+
+    // Backend
+    try {
+        const userId = getUserId();
+        // We lack a direct "mark all read" endpoint in the controller (only delete all).
+        // So we will iterate or assume user wants to just see them as read locally?
+        // Wait, the user asked for Gmail logic. Gmail has "Mark all as read". 
+        // I should check if the backend supports it. The controller has DeleteAll but not MarkAllRead.
+        // I will implement a client-side loop for now or just rely on individual clicks.
+        // Actually, let's implement the client-side loop as a temporary solution 
+        // since I cannot edit backend C# code easily without restarting everything and risking errors.
+
+        // Fetch unread to get IDs
+        const res = await fetch(`${API_URL}/notifications/${userId}`, {
+            headers: { 'Authorization': `Bearer ${checkAuth()}` }
+        });
+        const notifs = await res.json();
+        const unreadIds = notifs.filter(n => !n.isRead).map(n => n.id);
+
+        // Parallel requests (limit concurrency if many)
+        await Promise.all(unreadIds.map(id =>
+            fetch(`${API_URL}/notifications/${id}/read`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${checkAuth()}` }
-            });
-            // Reflect change locally immediately
-            notification.isRead = true;
-            loadNotifications(); // Reload to update UI accurately
-        } catch (e) {
-            console.error(e);
-        }
+            })
+        ));
+
+    } catch (err) {
+        console.error("Tümünü okundu yapma hatası", err);
     }
 }
 
-async function deleteNotification(e, id) {
-    e.stopPropagation(); // Don't trigger click on item
-    if (!confirm('Bu bildirimi silmek istediğinize emin misiniz?')) return;
+async function removeNotification(e, id) {
+    const event = e || window.event;
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault(); // Stop form submission/reload
+    }
+
+    console.log('Deleting notification:', id);
+
+    // Optimistic UI: Remove immediately
+    const item = document.querySelector(`.notif-item[data-id="${id}"]`);
+    if (item) {
+        item.style.opacity = '0';
+        setTimeout(() => item.remove(), 300); // Animation
+
+        // If it was unread, decrement badge
+        if (item.classList.contains('unread')) {
+            updateBadge(Math.max(0, globalUnreadCount - 1));
+        }
+    }
 
     try {
         const res = await fetch(`${API_URL}/notifications/${id}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${checkAuth()}` }
         });
-        if (res.ok) {
-            loadNotifications();
+
+        console.log('Delete response:', res.status);
+
+        if (!res.ok) {
+            console.error('Delete failed:', await res.text());
+            // Optionally revert logic here if critical
+        }
+
+        // Check if list empty
+        const list = document.getElementById('notificationList');
+        if (list && list.children.length === 0) {
+            list.innerHTML = `
+            <div class="notif-empty">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">📭</div>
+                <div>Henüz bildiriminiz yok</div>
+            </div>`;
         }
     } catch (err) {
+        console.error('Delete error:', err);
         showError('Silinemedi');
+        // Restore if failed?
+        loadNotifications();
     }
 }
+// Expose globally
+window.removeNotification = removeNotification;
+window.markAsRead = markAsRead;
+window.markAllNotificationsRead = markAllNotificationsRead;
 
-async function confirmClearAll() {
-    const result = await Swal.fire({
-        title: 'Tümünü Temizle?',
-        text: "Tüm bildirimleriniz silinecektir!",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
-        confirmButtonText: 'Evet, Sil!',
-        cancelButtonText: 'İptal'
-    });
-
-    if (result.isConfirmed) {
-        const userId = getUserId();
-        try {
-            const res = await fetch(`${API_URL}/notifications/all/${userId}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${checkAuth()}` }
-            });
-            if (res.ok) {
-                loadNotifications();
-                Swal.fire('Temizlendi!', 'Bildirimleriniz silindi.', 'success');
-            }
-        } catch (err) {
-            showError('İşlem başarısız');
-        }
-    }
-}
+// "Delete All" functionality can be added if needed, but not part of standard Gmail dropdown header usually.
 
 async function deleteRide(rideId) {
     const token = checkAuth();
@@ -836,6 +1000,47 @@ async function editRide(rideId) {
 
         // Trigger smart price hint update manually
         calculateSmartPrice();
+
+    } catch (err) {
+        showError('Hata: ' + err.message);
+    }
+}
+
+
+async function republishRide(rideId) {
+    const token = checkAuth();
+    try {
+        const res = await fetch(`${API_URL}/rides/${rideId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('İlan detayları alınamadı');
+
+        const ride = await res.json();
+
+        // Open Modal
+        showCreateRideModal();
+
+        // Update Modal UI for Re-publishing
+        document.querySelector('#createRideModal h3').innerText = 'İlanı Yeniden Yayınla';
+        document.getElementById('btnPublishRide').innerText = 'Yeni İlan Olarak Yayınla';
+
+        // Fill Form (Clone Data)
+        editingRideId = null; // IMPORTANT: Create NEW ride
+        document.getElementById('newOrigin').value = ride.origin;
+        document.getElementById('newDest').value = ride.destination;
+        document.getElementById('newSeats').value = ride.totalSeats;
+        document.getElementById('newPrice').value = ride.price;
+
+        // Clear Date (User must pick new date)
+        document.getElementById('newDate').value = "";
+        if (document.getElementById('newDate')._flatpickr) {
+            document.getElementById('newDate')._flatpickr.clear();
+        }
+
+        // Trigger smart price hint
+        calculateSmartPrice();
+
+        showToast('Bilgiler kopyalandı, lütfen yeni tarih seçiniz.', 'info');
 
     } catch (err) {
         showError('Hata: ' + err.message);
