@@ -14,6 +14,8 @@ namespace BanuPool.Core.Interfaces
         Task<bool> DeleteRideAsync(int rideId);
         Task<bool> CancelReservationAsync(int rideId, int userId);
         Task<IEnumerable<Ride>> GetRidesForPassengerAsync(int passengerId);
-        Task<IEnumerable<Ride>> GetRidesForDriverAsync(int driverId);
+        Task<IEnumerable<Ride>> GetRidesForDriverAsync(int driverId, bool historyMode = false);
+        Task<bool> ArchiveRideAsync(int rideId);
+        Task<bool> CancelRideAsync(int rideId, string reason);
     }
 }

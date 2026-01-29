@@ -15,6 +15,7 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
 builder.Services.AddOpenApi();
+builder.Services.AddSignalR(); // Add SignalR
 
 // Database Context
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -30,9 +31,10 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll",
-        b => b.AllowAnyOrigin()
+        b => b.WithOrigins("http://127.0.0.1:5500", "http://localhost:5500") // Must specify origin for AllowCredentials
               .AllowAnyMethod()
-              .AllowAnyHeader());
+              .AllowAnyHeader()
+              .AllowCredentials()); // Required for SignalR Auth
 });
 
 // Authentication Configuration
@@ -57,6 +59,22 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer = jwtSettings["Issuer"],
         ValidAudience = jwtSettings["Audience"]
     };
+    
+    // SignalR Token Handling (Query String)
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) &&
+                (path.StartsWithSegments("/notificationHub")))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
 
 var app = builder.Build();
@@ -66,6 +84,21 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.EnsureCreated();
+    
+    // SAFE MIGRATION: Add IsArchived column if it doesn't exist
+    try {
+        db.Database.ExecuteSqlRaw("ALTER TABLE Rides ADD COLUMN IsArchived INTEGER DEFAULT 0");
+    } catch { }
+
+    try {
+        db.Database.ExecuteSqlRaw("ALTER TABLE Rides ADD COLUMN Status INTEGER DEFAULT 0");
+    } catch { } 
+
+    // MIGRATION: CancelReason, CancelTime, ReputationScore
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE Rides ADD COLUMN CancelReason TEXT"); } catch { }
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE Rides ADD COLUMN CancelTime TEXT"); } catch { }
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE Users ADD COLUMN ReputationScore REAL DEFAULT 5.0"); } catch { } 
+
 }
 
 // Configure the HTTP request pipeline.
@@ -82,5 +115,6 @@ app.UseAuthentication(); // Enable Auth
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<BanuPool.API.Hubs.NotificationHub>("/notificationHub");
 
 app.Run();

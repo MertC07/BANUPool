@@ -5,16 +5,20 @@ using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.SignalR;
+using BanuPool.API.Hubs;
 
 namespace BanuPool.API.Services
 {
     public class NotificationService : INotificationService
     {
         private readonly AppDbContext _context;
+        private readonly IHubContext<NotificationHub> _hubContext;
 
-        public NotificationService(AppDbContext context)
+        public NotificationService(AppDbContext context, IHubContext<NotificationHub> hubContext)
         {
             _context = context;
+            _hubContext = hubContext;
         }
 
         public async Task CreateNotificationAsync(int userId, string title, string message, string type = "info", int? relatedRideId = null)
@@ -25,11 +29,16 @@ namespace BanuPool.API.Services
                 Title = title,
                 Message = message,
                 Type = type,
-                RelatedRideId = relatedRideId
+                RelatedRideId = relatedRideId,
+                CreatedAt = System.DateTime.UtcNow, // Ensure we have a date
+                IsRead = false
             };
 
             _context.Notifications.Add(notification);
             await _context.SaveChangesAsync();
+            
+            // Real-time Push
+            await _hubContext.Clients.User(userId.ToString()).SendAsync("ReceiveNotification", notification);
         }
 
         public async Task<List<Notification>> GetUserNotificationsAsync(int userId)

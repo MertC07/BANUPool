@@ -11,6 +11,7 @@ namespace BanuPool.Core.Entities
         public string Email { get; set; } = string.Empty;
         public string PasswordHash { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
+        public double ReputationScore { get; set; } = 5.0; // Default starts at 5.0
 
         // Navigation Properties can be added here later
     }

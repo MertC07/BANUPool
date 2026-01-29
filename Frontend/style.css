@@ -2162,3 +2162,22 @@ body.dark-mode .notif-title {
 body.dark-mode .notif-message {
     color: #cbd5e1;
 }
+
+/* Sub-tabs */
+.sub-tab-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 20px;
+    background: white;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.sub-tab-btn.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+    box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
+}

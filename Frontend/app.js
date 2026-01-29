@@ -149,7 +149,7 @@ function updateNavigation() {
                 <div id="notificationDropdown" class="notification-dropdown">
                     <div class="dropdown-header">
                         <span class="header-title">Bildirimler</span>
-                        <button onclick="markAllNotificationsRead()" class="header-action">Tümünü okundu işaretle</button>
+                        <button onclick="markAllNotificationsRead(event)" class="header-action">Tümünü okundu işaretle</button>
                     </div>
                     <div id="notificationList" class="dropdown-content">
                         <!-- Items injected here -->
@@ -348,6 +348,16 @@ function switchTab(tab) {
     document.getElementById('ridesList').style.display = 'none';
     document.getElementById('my-reservations-list').style.display = 'none';
 
+    // Explicitly handle sub-tabs visibility
+    const subTabs = document.getElementById('myRidesSubTabs');
+    if (subTabs) {
+        subTabs.style.display = (tab === 'my') ? 'flex' : 'none';
+    }
+    const ticketSubTabs = document.getElementById('myTicketsSubTabs');
+    if (ticketSubTabs) {
+        ticketSubTabs.style.display = (tab === 'reservations') ? 'flex' : 'none';
+    }
+
     if (tab === 'all') {
         document.querySelector('.tab-btn:nth-child(1)').classList.add('active');
         if (document.getElementById('searchSection')) document.getElementById('searchSection').style.display = 'block';
@@ -367,6 +377,21 @@ function switchTab(tab) {
 }
 
 // --- RESERVATIONS (My Trips) ---
+let currentMyTicketsTab = 'active'; // 'active' or 'history'
+
+window.switchMyTicketsTab = function (tab) {
+    currentMyTicketsTab = tab;
+    document.querySelectorAll('#myTicketsSubTabs .sub-tab-btn').forEach(btn => {
+        if ((tab === 'active' && btn.innerText.includes('Aktif')) ||
+            (tab === 'history' && btn.innerText.includes('Geçmiş'))) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+    loadMyReservations();
+}
+
 async function loadMyReservations() {
     const list = document.getElementById('my-reservations-list');
     if (!list) return;
@@ -396,12 +421,39 @@ async function loadMyReservations() {
             return;
         }
 
-        rides.forEach(ride => {
+        // FILTERING FOR TABS
+        const now = new Date();
+        let filteredRides = [];
+
+        if (currentMyTicketsTab === 'active') {
+            filteredRides = rides.filter(r => new Date(r.departureTime) >= now);
+        } else {
+            // History
+            filteredRides = rides.filter(r => new Date(r.departureTime) < now);
+        }
+
+        if (filteredRides.length === 0) {
+            list.innerHTML = `
+                <div style="text-align:center; padding: 4rem 2rem; color: var(--text-secondary);">
+                    <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;">🎫</div>
+                    <p style="font-size: 1.1rem;">${currentMyTicketsTab === 'active' ? 'Aktif biletiniz bulunmuyor.' : 'Geçmiş biletiniz bulunmuyor.'}</p>
+                    ${currentMyTicketsTab === 'active' ? '<button onclick="switchTab(\'all\')" class="btn-primary" style="margin-top:1rem;">Hemen Yolculuk Bul</button>' : ''}
+                </div>`;
+            return;
+        }
+
+        filteredRides.forEach(ride => {
             const date = new Date(ride.departureTime).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long' });
             const time = new Date(ride.departureTime).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 
             const card = document.createElement('div');
             card.className = 'ride-card';
+            // Visual indication for past rides
+            if (currentMyTicketsTab === 'history') {
+                card.style.opacity = '0.7';
+                card.style.borderLeft = '4px solid #94a3b8';
+            }
+
             card.innerHTML = `
                 <div class="ride-header">
                     <div class="ride-price">${ride.price} ₺</div>
@@ -427,14 +479,14 @@ async function loadMyReservations() {
                 </div>
                 <div class="card-footer">
                     <span class="status-badge success">
-                        <span style="font-size:1.1em;">✓</span> Onaylandı
+                        <span style="font-size:1.1em;">✓</span> ${currentMyTicketsTab === 'active' ? 'Onaylandı' : 'Tamamlandı'}
                     </span>
                     <div style="display:flex; gap:0.5rem; align-items:center;">
                         ${ride.driver?.phoneNumber ? `
                         <a href="https://wa.me/90${ride.driver.phoneNumber.replace(/^0/, '').replace(/\D/g, '')}" target="_blank" class="btn-whatsapp">
                             <span>💬</span> Mesaj
                         </a>` : ''}
-                        ${new Date(ride.departureTime) < new Date() ?
+                        ${currentMyTicketsTab === 'history' ?
                     `<button class="btn-primary" onclick="openRateModal(${ride.id}, ${ride.driver.id})" style="padding:0.4rem 0.8rem; font-size:0.85rem;">⭐ Puanla</button>` :
                     `<button class="btn-destructive" onclick="cancelSeat(${ride.id})">İptal</button>`
                 }
@@ -487,6 +539,25 @@ async function cancelSeat(rideId) {
 // (Removed duplicate Tab Logic to fix scoping issue)
 
 // --- RIDE MANAGEMENT ---
+
+// --- MY RIDES SUB-TAB STATE ---
+let currentMyRidesTab = 'active'; // 'active' or 'history'
+
+window.switchMyRidesTab = function (tab) {
+    currentMyRidesTab = tab;
+    // Update button states
+    document.querySelectorAll('.sub-tab-btn').forEach(btn => {
+        if ((tab === 'active' && btn.innerText.includes('Aktif')) ||
+            (tab === 'history' && btn.innerText.includes('Geçmiş'))) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+    // Refresh list
+    loadRides();
+}
+
 async function loadRides() {
     const originFilter = document.getElementById('searchOrigin')?.value || '';
     const destFilter = document.getElementById('searchDest')?.value || '';
@@ -498,13 +569,34 @@ async function loadRides() {
 
         let url = `${API_URL}/rides`;
 
+        // Toggle Sub-tabs visibility
+        const wrapper = document.getElementById('myRidesSubTabs');
+        if (currentTab === 'my') {
+            if (wrapper) wrapper.style.display = 'flex';
+        } else {
+            if (wrapper) wrapper.style.display = 'none';
+        }
+
         // LIFECYCLE LOGIC:
-        // If "My Rides" -> Fetch from new endpoint (includes expired)
-        // If "All" -> Fetch from search endpoint (only active)
-        if (currentTab === 'my' && currentUserId) {
-            url = `${API_URL}/rides/driver/${currentUserId}`;
-        } else if (currentUserId) {
-            url = `${API_URL}/rides?userId=${currentUserId}`;
+        if (currentTab === 'my') {
+            if (!currentUserId) {
+                console.warn("User ID missing for My Rides");
+                // Optional: Force login or handle error
+                // window.location.href = 'index.html'; 
+                // For now, let's just not set the URL to avoid 400, or let checkAuth handle it?
+                // checkAuth() is called later, we should probably call it here or return.
+                return;
+            }
+            const isHistory = currentMyRidesTab === 'history';
+            url = `${API_URL}/rides/driver/${currentUserId}?history=${isHistory}`;
+        } else if (currentTab === 'reservations') {
+            loadMyReservations(); // Handled separately
+            return;
+        } else {
+            // Search / Public (Active only)
+            const userPart = currentUserId ? `&userId=${currentUserId}` : '';
+            const query = `?origin=${encodeURIComponent(originFilter)}&destination=${encodeURIComponent(destFilter)}&maxPrice=${maxPrice === Infinity ? '' : maxPrice}&sortBy=${sortBy}${userPart}`;
+            url += `/search${query}`;
         }
 
         const options = {
@@ -517,7 +609,10 @@ async function loadRides() {
         }
 
         const response = await fetch(url, options);
-        if (!response.ok) throw new Error('Sunucu hatası: ' + response.status);
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error('Sunucu hatası: ' + response.status + ' | ' + errText);
+        }
         let rides = await response.json();
 
         if (!Array.isArray(rides)) rides = []; // Safety check
@@ -580,66 +675,32 @@ async function loadRides() {
             return;
         }
 
+        // --- SPLIT VIEW LOGIC FOR 'MY RIDES' ---
+        if (currentTab === 'my') {
+            const now = new Date();
+            // Active = Departure Time > Now AND Status != Cancelled (3)
+            const activeRides = rides.filter(r => new Date(r.departureTime) >= now && r.status !== 3);
+
+            // Expired OR Cancelled
+            const pastRides = rides.filter(r => new Date(r.departureTime) < now || r.status === 3);
+
+            if (activeRides.length > 0) {
+                list.innerHTML += `<h4 style="margin: 1.5rem 0 1rem; color: var(--primary-color); border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem;">Aktif İlanlar (${activeRides.length})</h4>`;
+                activeRides.forEach(ride => list.appendChild(createRideCard(ride)));
+            }
+
+            if (pastRides.length > 0) {
+                list.innerHTML += `<h4 style="margin: 2rem 0 1rem; color: var(--text-secondary); border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem;">Geçmiş & İptal Edilenler (${pastRides.length})</h4>`;
+                pastRides.forEach(ride => list.appendChild(createRideCard(ride)));
+            }
+            return; // Done rendering for 'my' tab
+        }
+
+        // --- STANDARD VIEW FOR OTHER TABS ---
         rides.forEach(ride => {
-            const dateObj = new Date(ride.departureTime);
-            const isValidDate = !isNaN(dateObj);
-            const dateStr = isValidDate ? dateObj.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' }) : ride.departureTime;
-            const timeStr = isValidDate ? dateObj.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '';
-
-            const available = ride.totalSeats - ride.reservedSeats;
-            const isFull = available <= 0;
-            const isMyRide = (ride.driver && ride.driver.id) == currentUserId || (ride.driverId == currentUserId);
-
-            // Check expiry
-            const isExpired = new Date(ride.departureTime) < new Date();
-
-            const card = document.createElement('div');
-            card.className = `ride-card ${isExpired ? 'expired' : ''}`;
-            card.style.borderLeft = `4px solid ${isExpired ? '#94a3b8' : (isFull ? '#cbd5e1' : 'var(--secondary-color)')}`;
-
-            if (isMyRide && currentTab === 'all') {
-                card.style.borderColor = 'var(--primary-color)';
-                card.style.background = 'linear-gradient(to right, rgba(99, 102, 241, 0.05), transparent)';
-            }
-
-            let actionHtml = '';
-            if (currentTab === 'my') {
-                actionHtml = `
-                    <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:0.5rem;">
-                         ${isExpired
-                        ? `<button onclick="republishRide(${ride.id})" class="btn-sm btn-edit">🔄 Yeniden Yayınla</button>`
-                        : `<button onclick="editRide(${ride.id})" class="btn-sm btn-edit">Düzenle</button>`}
-                         <button onclick="deleteRide(${ride.id})" class="btn-sm btn-danger">Sil</button>
-                    </div>
-                `;
-            } else {
-                if (isMyRide) {
-                    actionHtml = `<button class="btn-primary" disabled style="background-color: var(--text-secondary); color: white; opacity: 0.8; cursor: not-allowed; width:100%;">Sizin İlanınız</button>`;
-                } else {
-                    actionHtml = `<button onclick="reserveRide(${ride.id})" class="btn-primary" style="width:100%; ${isFull ? 'background:gray;' : ''}" ${isFull ? 'disabled' : ''}>${isFull ? 'Dolu' : 'Rezervasyon'}</button>`;
-                }
-            }
-
-            card.innerHTML = `
-                <div class="ride-info">
-                        ${ride.origin} <span style="color:var(--text-secondary); font-size:0.8em;">➔</span> ${ride.destination}
-                        ${isMyRide ? '<span style="font-size:0.7rem; background:var(--primary-color); color:white; padding:2px 6px; border-radius:4px;">SİZ</span>' : ''}
-                        ${isExpired ? '<span class="status-badge expired">⚠️ Süresi Doldu</span>' : ''}
-                    </h3>
-                    <div class="ride-details" style="display:grid; grid-template-columns: auto auto; gap: 0.5rem 2rem; margin-top:0.5rem;">
-                        <span>📅 <b>${dateStr}</b> ${timeStr}</span>
-                        <span>👤 ${ride.driver ? ride.driver.firstName : 'Sürücü'}</span>
-                        <span>🚗 ${ride.vehicle ? (ride.vehicle.model + ' (' + ride.vehicle.plateNumber + ')') : 'Araç Bilgisi Yok'}</span>
-                        <span>💺 Boş: <span style="color:${isFull ? 'red' : 'green'}">${available}</span> / ${ride.totalSeats}</span>
-                    </div>
-                </div>
-                <div class="ride-action" style="min-width: 140px;">
-                    <div class="price-tag" style="text-align:right; margin-bottom:0.5rem;">${ride.price} ₺</div>
-                    ${actionHtml}
-                </div>
-            `;
-            list.appendChild(card);
+            list.appendChild(createRideCard(ride));
         });
+
     } catch (err) {
         console.error(err);
         const list = document.getElementById('ridesList');
@@ -656,18 +717,111 @@ async function loadRides() {
     }
 }
 
+function createRideCard(ride) {
+    const userId = getUserId();
+    const currentTab = document.querySelector('.tab-btn.active').innerText.includes('İlanlarım') ? 'my' :
+        (document.querySelector('.tab-btn.active').innerText.includes('Biletlerim') ? 'reservations' : 'all');
+
+    const dateObj = new Date(ride.departureTime);
+    const isValidDate = !isNaN(dateObj);
+    const dateStr = isValidDate ? dateObj.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' }) : ride.departureTime;
+    const timeStr = isValidDate ? dateObj.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '';
+
+    const available = ride.totalSeats - ride.reservedSeats;
+    const isFull = available <= 0;
+    const isMyRide = (ride.driver && ride.driver.id) == userId || (ride.driverId == userId);
+
+    // Check expiry and status
+    const isExpired = new Date(ride.departureTime) < new Date();
+    const isCancelled = ride.status === 3; // Enum: Cancelled = 3
+
+    const card = document.createElement('div');
+    card.className = `ride-card ${isExpired ? 'expired' : ''} ${isCancelled ? 'cancelled-ride-card' : ''}`;
+
+    // Style separation
+    let borderColor = 'var(--secondary-color)';
+    if (isCancelled) borderColor = '#ef4444'; // Red for cancelled
+    else if (isExpired) borderColor = '#94a3b8'; // Gray for expired
+    else if (isFull) borderColor = '#cbd5e1';
+
+    card.style.borderLeft = `4px solid ${borderColor}`;
+    if (isCancelled) card.style.backgroundColor = '#fef2f2'; // Light red background
+
+    if (isMyRide && currentTab === 'all') {
+        card.style.borderColor = 'var(--primary-color)';
+        card.style.background = 'linear-gradient(to right, rgba(99, 102, 241, 0.05), transparent)';
+    }
+
+    let actionHtml = '';
+    if (currentTab === 'my') {
+        const canEdit = !isExpired && ride.reservedSeats === 0 && !isCancelled; // State Pattern Check
+
+        // Determine Tooltip Message
+        let editTooltip = "";
+        if (isCancelled) editTooltip = "İptal edilen ilanlar düzenlenemez";
+        else if (ride.reservedSeats > 0) editTooltip = "Yolcusu olan ilan düzenlenemez";
+
+        actionHtml = `
+                    <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:0.5rem;">
+                         ${isExpired
+                ? `<button onclick="republishRide(${ride.id})" class="btn-sm btn-edit">🔄 Yeniden Yayınla</button>`
+                : `<button onclick="${canEdit ? `editRide(${ride.id})` : ''}" class="btn-sm btn-edit" 
+                        style="${!canEdit ? 'background-color:#94a3b8; cursor:not-allowed; opacity:0.7;' : ''}" 
+                        ${!canEdit ? `disabled title="${editTooltip}"` : ''}>
+                        ${canEdit ? 'Düzenle' : '🔒 Düzenlenemez'}
+                   </button>`}
+                         ${!isCancelled ? `<button onclick="initiateCancelRide(${ride.id})" class="btn-sm btn-danger">İptal Et</button>` : ''}
+                    </div>
+                `;
+    } else {
+        if (isMyRide) {
+            actionHtml = `<button class="btn-primary" disabled style="background-color: var(--text-secondary); color: white; opacity: 0.8; cursor: not-allowed; width:100%;">Sizin İlanınız</button>`;
+        } else {
+            actionHtml = `<button onclick="reserveRide(${ride.id})" class="btn-primary" style="width:100%; ${isFull ? 'background:gray;' : ''}" ${isFull ? 'disabled' : ''}>${isFull ? 'Dolu' : 'Rezervasyon'}</button>`;
+        }
+    }
+
+    card.innerHTML = `
+                <div class="ride-info">
+                        ${ride.origin} <span style="color:var(--text-secondary); font-size:0.8em;">➔</span> ${ride.destination}
+                        ${isMyRide ? '<span style="font-size:0.7rem; background:var(--primary-color); color:white; padding:2px 6px; border-radius:4px;">SİZ</span>' : ''}
+                        ${isExpired ? '<span class="status-badge expired">⚠️ Süresi Doldu</span>' : ''}
+                        ${isCancelled ? '<span class="status-badge" style="background:#ef4444; color:white;">🚫 İPTAL EDİLDİ</span>' : ''}
+                    </h3>
+                    <div class="ride-details" style="display:grid; grid-template-columns: auto auto; gap: 0.5rem 2rem; margin-top:0.5rem;">
+                    <span>📅 <b>${dateStr}</b> ${timeStr}</span>
+                    <span>👤 ${ride.driver ? ride.driver.firstName : 'Sürücü'} <span style="color:#f59e0b; font-weight:bold;">⭐ ${(ride.driver && ride.driver.reputationScore !== undefined) ? ride.driver.reputationScore.toFixed(1) : '5.0'}</span></span>
+                    <span>🚗 ${ride.vehicle ? (ride.vehicle.model + ' (' + ride.vehicle.plateNumber + ')') : 'Araç Bilgisi Yok'}</span>
+                    <span>💺 Boş: <span style="color:${isFull ? 'red' : 'green'}">${available}</span> / ${ride.totalSeats}</span>
+                </div>
+                </div>
+                <div class="ride-action" style="min-width: 140px;">
+                    <div class="price-tag" style="text-align:right; margin-bottom:0.5rem;">${ride.price} ₺</div>
+                    ${actionHtml}
+                </div>
+            `;
+    return card;
+}
+
 // --- NOTIFICATIONS ---
 
 // --- NOTIFICATIONS (GMAIL STYLE) ---
 
 async function initDashboard() {
+    // Check Flash Messages
+    if (localStorage.getItem('cancelSuccess')) {
+        localStorage.removeItem('cancelSuccess');
+        showToast('İlanınız başarıyla iptal edildi! 🚫', 'success');
+    }
+
     await loadRides();
 
     // Initial load
     await loadNotifications();
 
     // Poll every 30s
-    setInterval(loadNotifications, 30000);
+    // Initial load only - NO POLLING
+    await loadNotifications();
 
     // Global click listener to close dropdown
     document.addEventListener('click', (e) => {
@@ -677,34 +831,50 @@ async function initDashboard() {
             dropdown.classList.remove('active');
         }
     });
+
+    // CRITICAL: Stop propagation from inside the dropdown to prevent closing
+    const dropdown = document.getElementById('notificationDropdown');
+    if (dropdown) {
+        dropdown.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+    }
 }
 
+// --- NOTIFICATIONS CORE LOGIC ---
+
+// 1. Toggle Dropdown
 function toggleNotifications(event) {
-    if (event) event.stopPropagation();
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
     const dropdown = document.getElementById('notificationDropdown');
     const isActive = dropdown.classList.contains('active');
 
-    // Close others if any (not needed here but good practice)
-    document.querySelectorAll('.notification-dropdown').forEach(d => d.classList.remove('active'));
+    // Close others
+    document.querySelectorAll('.notification-dropdown').forEach(d => {
+        if (d !== dropdown) d.classList.remove('active');
+    });
 
     if (!isActive) {
         dropdown.classList.add('active');
-        // Refresh when opening
-        loadNotifications();
+        // Optional: Refresh only if empty or explicitly requested
+        const list = document.getElementById('notificationList');
+        if (list && list.children.length === 0) {
+            loadNotifications();
+        }
     } else {
         dropdown.classList.remove('active');
     }
 }
 
-// Global state to track unread count locally for optimistic updates
-let globalUnreadCount = 0;
-
+// 2. Load Notifications (Initial)
 async function loadNotifications() {
     const userId = getUserId();
     if (!userId) return;
 
     try {
-        // Cache busting to ensure fresh data
         const res = await fetch(`${API_URL}/notifications/${userId}?_t=${Date.now()}`, {
             headers: { 'Authorization': `Bearer ${checkAuth()}` }
         });
@@ -713,20 +883,21 @@ async function loadNotifications() {
             const notifications = await res.json();
             renderNotifications(notifications);
 
-            // Count unread
+            // Initial Badge Count
             const unreadCount = notifications.filter(n => !n.isRead).length;
             updateBadge(unreadCount);
         }
     } catch (err) {
-        console.error("Bildirimler yüklenemedi", err);
+        console.error("Bildirim yükleme hatası", err);
     }
 }
 
+// 3. Render List (Reset)
 function renderNotifications(notifications) {
     const list = document.getElementById('notificationList');
     if (!list) return;
 
-    list.innerHTML = '';
+    list.innerHTML = ''; // Reset list
 
     if (notifications.length === 0) {
         list.innerHTML = `
@@ -738,189 +909,179 @@ function renderNotifications(notifications) {
     }
 
     notifications.forEach(n => {
-        const item = document.createElement('div');
-        // Gmail logic: .unread has distinct background, .read is white.
-        item.className = `notif-item ${n.isRead ? 'read' : 'unread'}`;
-        item.dataset.id = n.id;
-
-        // Icon based on type
-        let iconHtml = '<div class="notif-icon info">ℹ️</div>';
-        if (n.type === 'success') iconHtml = '<div class="notif-icon success">✅</div>';
-        if (n.type === 'warning') iconHtml = '<div class="notif-icon warning">⚠️</div>';
-        if (n.type === 'error') iconHtml = '<div class="notif-icon error">❌</div>';
-
-        // Date formatting relative (e.g. "2 saat önce" or "10:30")
-        const date = new Date(n.createdAt);
-        const timeStr = date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-        const isToday = new Date().toDateString() === date.toDateString();
-        const dateDisplay = isToday ? timeStr : date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
-
-        item.innerHTML = `
-            <div class="notif-left" onclick="handleNotificationClick(${n.id}, ${n.isRead})">
-                ${iconHtml}
-                <div class="notif-content">
-                    <div class="notif-title">${n.title || 'Bildirim'}</div>
-                    <div class="notif-message">${n.message}</div>
-                    <div class="notif-date">${dateDisplay}</div>
-                </div>
-            </div>
-            <div class="notif-actions">
-                <button class="notif-action-btn delete-btn" title="Sil" onclick="removeNotification(event, ${n.id})">
-                    🗑️
-                </button>
-                ${!n.isRead ? `
-                <button class="notif-action-btn read-btn" title="Okundu işaretle" onclick="markAsRead(event, ${n.id})">
-                    📩
-                </button>` : ''}
-            </div>
-        `;
+        const item = createNotificationItem(n);
         list.appendChild(item);
     });
 }
 
-function updateBadge(count) {
-    globalUnreadCount = count;
-    // Update dashboard and nav badges
-    const badges = document.querySelectorAll('#notif-badge, #notificationBadge');
-    badges.forEach(badge => {
-        if (count > 0) {
-            badge.innerText = count > 99 ? '99+' : count;
-            badge.style.display = 'flex'; // Ensure flex for centering
-            badge.classList.add('active');
-        } else {
-            badge.style.display = 'none';
-            badge.classList.remove('active');
-        }
-    });
-}
+// 4. Create Item (Shared with SignalR)
+function createNotificationItem(n) {
+    const item = document.createElement('div');
+    item.className = `notif-item ${n.isRead ? 'read' : 'unread'}`;
+    item.dataset.id = n.id;
+    // Prevent dropdown sizing issues
+    item.style.overflow = "hidden";
 
-// Click on the main body of the notification (opens details or just marks read)
-async function handleNotificationClick(id, isRead) {
-    if (!isRead) {
-        await markAsRead(null, id);
+    // Content
+    const left = document.createElement('div');
+    left.className = 'notif-left';
+    left.innerHTML = `
+        ${getIconHtml(n.type)}
+        <div class="notif-content">
+            <div class="notif-title">${n.title || 'Bildirim'}</div>
+            <div class="notif-message">${n.message}</div>
+            <div class="notif-date">${getDateDisplay(n.createdAt || new Date())}</div>
+        </div>
+    `;
+    left.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleNotificationClick(n.id, n.isRead);
+    };
+
+    // Actions
+    const actions = document.createElement('div');
+    actions.className = 'notif-actions';
+
+    // Delete
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'notif-action-btn delete-btn';
+    deleteBtn.innerHTML = '🗑️';
+    deleteBtn.title = 'Sil';
+    deleteBtn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation(); // CRITICAL: Stop Event
+        removeNotification(n.id);
+    };
+    actions.appendChild(deleteBtn);
+
+    // Mark Read
+    if (!n.isRead) {
+        const readBtn = document.createElement('button');
+        readBtn.type = 'button';
+        readBtn.className = 'notif-action-btn read-btn';
+        readBtn.innerHTML = '📩';
+        readBtn.title = 'Okundu işaretle';
+        readBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation(); // CRITICAL: Stop Event
+            markAsRead(n.id);
+        };
+        actions.appendChild(readBtn);
     }
-    // Logic to navigate if relatedRideId exists can go here
+
+    item.appendChild(left);
+    item.appendChild(actions);
+    return item;
 }
 
-async function markAsRead(event, id) {
-    if (event) event.stopPropagation();
-
-    // Optimistic UI Update
+// 5. Mark As Read (No Reload, Math Update)
+async function markAsRead(id) {
+    // UI Update (Immediate)
     const item = document.querySelector(`.notif-item[data-id="${id}"]`);
     if (item && item.classList.contains('unread')) {
         item.classList.remove('unread');
         item.classList.add('read');
 
-        // Remove the "Mark Read" button if it exists
+        // Remove Read Button
         const readBtn = item.querySelector('.read-btn');
         if (readBtn) readBtn.remove();
 
-        // Decrement badge
-        updateBadge(Math.max(0, globalUnreadCount - 1));
+        // Update Badge Math
+        const badge = document.getElementById('notif-badge');
+        if (badge) {
+            let current = parseInt(badge.innerText) || 0;
+            current = Math.max(0, current - 1);
+            updateBadge(current);
+        }
     }
 
-    // Backend Call
+    // Backend
     try {
         await fetch(`${API_URL}/notifications/${id}/read`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${checkAuth()}` }
         });
-    } catch (e) {
-        console.error("Okundu işaretleme hatası", e);
-        // Revert UI if needed (omitted for simplicity)
-    }
+    } catch (e) { console.error("Okundu hatası", e); }
 }
 
-async function markAllNotificationsRead() {
-    // Optimistic UI
-    document.querySelectorAll('.notif-item.unread').forEach(item => {
-        item.classList.remove('unread');
-        item.classList.add('read');
-        const readBtn = item.querySelector('.read-btn');
-        if (readBtn) readBtn.remove();
-    });
-    updateBadge(0);
-
-    // Backend
-    try {
-        const userId = getUserId();
-        // We lack a direct "mark all read" endpoint in the controller (only delete all).
-        // So we will iterate or assume user wants to just see them as read locally?
-        // Wait, the user asked for Gmail logic. Gmail has "Mark all as read". 
-        // I should check if the backend supports it. The controller has DeleteAll but not MarkAllRead.
-        // I will implement a client-side loop for now or just rely on individual clicks.
-        // Actually, let's implement the client-side loop as a temporary solution 
-        // since I cannot edit backend C# code easily without restarting everything and risking errors.
-
-        // Fetch unread to get IDs
-        const res = await fetch(`${API_URL}/notifications/${userId}`, {
-            headers: { 'Authorization': `Bearer ${checkAuth()}` }
-        });
-        const notifs = await res.json();
-        const unreadIds = notifs.filter(n => !n.isRead).map(n => n.id);
-
-        // Parallel requests (limit concurrency if many)
-        await Promise.all(unreadIds.map(id =>
-            fetch(`${API_URL}/notifications/${id}/read`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${checkAuth()}` }
-            })
-        ));
-
-    } catch (err) {
-        console.error("Tümünü okundu yapma hatası", err);
-    }
-}
-
-async function removeNotification(e, id) {
-    const event = e || window.event;
-    if (event) {
-        event.stopPropagation();
-        event.preventDefault(); // Stop form submission/reload
-    }
-
-    console.log('Deleting notification:', id);
-
-    // Optimistic UI: Remove immediately
+// 6. Remove Notification (No Reload, Math Update)
+async function removeNotification(id) {
+    // UI Update (Immediate)
     const item = document.querySelector(`.notif-item[data-id="${id}"]`);
     if (item) {
-        item.style.opacity = '0';
-        setTimeout(() => item.remove(), 300); // Animation
-
-        // If it was unread, decrement badge
+        // Decrease badge if specific item was unread
         if (item.classList.contains('unread')) {
-            updateBadge(Math.max(0, globalUnreadCount - 1));
+            const badge = document.getElementById('notif-badge');
+            if (badge) {
+                let current = parseInt(badge.innerText) || 0;
+                current = Math.max(0, current - 1);
+                updateBadge(current);
+            }
         }
+        item.remove();
     }
 
-    try {
-        const res = await fetch(`${API_URL}/notifications/${id}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${checkAuth()}` }
-        });
-
-        console.log('Delete response:', res.status);
-
-        if (!res.ok) {
-            console.error('Delete failed:', await res.text());
-            // Optionally revert logic here if critical
-        }
-
-        // Check if list empty
-        const list = document.getElementById('notificationList');
-        if (list && list.children.length === 0) {
-            list.innerHTML = `
+    // Check Empty State
+    const list = document.getElementById('notificationList');
+    if (list && list.children.length === 0) {
+        list.innerHTML = `
             <div class="notif-empty">
                 <div style="font-size: 2rem; margin-bottom: 0.5rem;">📭</div>
                 <div>Henüz bildiriminiz yok</div>
             </div>`;
-        }
-    } catch (err) {
-        console.error('Delete error:', err);
-        showError('Silinemedi');
-        // Restore if failed?
-        loadNotifications();
     }
+
+    // Backend
+    try {
+        await fetch(`${API_URL}/notifications/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${checkAuth()}` }
+        });
+    } catch (e) {
+        console.error("Silme hatası", e);
+        showToast("Silinemedi", "error");
+    }
+}
+
+// 7. Mark All Read
+async function markAllNotificationsRead(event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    // UI Update
+    document.querySelectorAll('.notif-item.unread').forEach(item => {
+        item.classList.remove('unread');
+        item.classList.add('read');
+        const btn = item.querySelector('.read-btn');
+        if (btn) btn.remove();
+    });
+    updateBadge(0);
+
+    // Backend
+    const userId = getUserId();
+    if (!userId) return;
+
+    // Fetch unread IDs to mark them involved
+    try {
+        const res = await fetch(`${API_URL}/notifications/${userId}`, {
+            headers: { 'Authorization': `Bearer ${checkAuth()}` }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            const unreadIds = data.filter(n => !n.isRead).map(n => n.id);
+            // Fire and forget
+            unreadIds.forEach(id => {
+                fetch(`${API_URL}/notifications/${id}/read`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${checkAuth()}` }
+                }).catch(e => console.error(e));
+            });
+        }
+    } catch (e) { console.error(e); }
 }
 // Expose globally
 window.removeNotification = removeNotification;
@@ -929,39 +1090,68 @@ window.markAllNotificationsRead = markAllNotificationsRead;
 
 // "Delete All" functionality can be added if needed, but not part of standard Gmail dropdown header usually.
 
-async function deleteRide(rideId) {
+// --- CANCEL RIDE ---
+window.initiateCancelRide = async function (rideId) {
     const token = checkAuth();
+    if (!token) return;
 
-    if (typeof Swal !== 'undefined') {
-        const res = await Swal.fire({
-            title: 'Siliyor musun?',
-            text: "Bu ilanı geri getiremezsin, emin misin?",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#ef4444',
-            confirmButtonText: 'Evet, Sil!',
-            cancelButtonText: 'Vazgeç'
-        });
-        if (!res.isConfirmed) return;
-    } else {
-        if (!confirm("İlanı silmek istediğine emin misin?")) return;
-    }
+    // 1. Ask for Reason
+    const { value: reason } = await Swal.fire({
+        title: 'Yolculuğu İptal Et',
+        input: 'select',
+        inputOptions: {
+            'Aracım bozuldu': 'Aracım bozuldu',
+            'Hastalandım': 'Hastalandım',
+            'Vazgeçtim': 'Vazgeçtim',
+            'Diğer': 'Diğer'
+        },
+        inputPlaceholder: 'İptal nedenini seçin',
+        showCancelButton: true,
+        confirmButtonText: 'İptal Et',
+        cancelButtonText: 'Vazgeç',
+        confirmButtonColor: '#d33',
+        inputValidator: (value) => {
+            return !value && 'Bir neden seçmelisiniz!'
+        }
+    });
+
+    if (!reason) return;
+
+    // 2. Confirm (Simulating Reputation Warning)
+    const result = await Swal.fire({
+        title: 'Emin misiniz?',
+        text: "Son dakika iptalleri güven puanınızı düşürebilir! Bu işlem geri alınamaz.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Evet, İptal Et!',
+        cancelButtonText: 'Vazgeç'
+    });
+
+    if (!result.isConfirmed) return;
 
     try {
-        const response = await fetch(`${API_URL}/rides/${rideId}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
+        const response = await fetch(`${API_URL}/rides/${rideId}/cancel`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ reason: reason })
         });
 
         if (response.ok) {
-            localStorage.setItem('rideAction', 'deleted');
+            // Set flag and reload
+            localStorage.setItem('cancelSuccess', 'true');
             window.location.reload();
         } else {
-            // Show specific error if backend returns one
-            const errorText = await response.text();
-            showError(`Silinemedi: ${response.status} - ${errorText}`);
+            const err = await response.text();
+            showError("İptal işlemi başarısız: " + err);
         }
-    } catch (err) { showError('Sunucu hatası: ' + err.message); }
+    } catch (e) {
+        showError("Bağlantı hatası: " + e.message);
+    }
 }
 
 // --- RIDE EDITING STATE ---
@@ -1026,10 +1216,23 @@ async function republishRide(rideId) {
 
         // Fill Form (Clone Data)
         editingRideId = null; // IMPORTANT: Create NEW ride
+
+
+
         document.getElementById('newOrigin').value = ride.origin;
         document.getElementById('newDest').value = ride.destination;
         document.getElementById('newSeats').value = ride.totalSeats;
         document.getElementById('newPrice').value = ride.price;
+
+        // HANDLE CHOICES.JS UPDATE
+        if (typeof choicesInstances !== 'undefined' && choicesInstances.length > 0) {
+            choicesInstances.forEach(c => {
+                if (c.passedElement && c.passedElement.element) {
+                    if (c.passedElement.element.id === 'newOrigin') c.setChoiceByValue(ride.origin);
+                    if (c.passedElement.element.id === 'newDest') c.setChoiceByValue(ride.destination);
+                }
+            });
+        }
 
         // Clear Date (User must pick new date)
         document.getElementById('newDate').value = "";
@@ -1173,6 +1376,9 @@ window.handleRideSubmit = async function () {
 
             // 1. Save State
             localStorage.setItem('rideSuccess', editingRideId ? 'updated' : 'created');
+
+
+
 
             // 2. Reload Page (Ensures fresh state and matches Login Logic)
             window.location.reload();
@@ -2067,10 +2273,125 @@ window.deleteNotification = async function (id) {
     } catch (e) { console.error(e); }
 };
 
-// Start polling if user is logged in (Safe check, no redirect)
+// --- SIGNALR REAL-TIME NOTIFICATIONS ---
+let connection = null;
+
+async function initializeSignalR() {
+    const token = checkAuth();
+    if (!token) return;
+
+    if (connection && connection.state === signalR.HubConnectionState.Connected) return;
+
+    connection = new signalR.HubConnectionBuilder()
+        .withUrl(`${API_URL.replace('/api', '')}/notificationHub`, {
+            accessTokenFactory: () => checkAuth()
+        })
+        .withAutomaticReconnect()
+        .build();
+
+    // Event Handler: Receive Notification
+    connection.on("ReceiveNotification", (notification) => {
+        console.log("New Notification:", notification);
+
+        // 1. Show Toast
+        showToast(notification.title || "Yeni Bildirim", "info");
+
+        // 2. Play Sound (Optional - might be blocked by browser)
+        // const audio = new Audio('assets/notification.mp3'); 
+        // audio.play().catch(e => console.log('Audio play failed', e));
+
+        // 3. Update Badge
+        if (typeof globalUnreadCount !== 'undefined') {
+            globalUnreadCount++;
+            updateBadge(globalUnreadCount);
+        }
+
+        // 4. Prepend to List if it exists
+        const list = document.getElementById('notificationList');
+        if (list) {
+            // Remove "Empty" loading/message if exists
+            const emptyMsg = list.querySelector('.notif-loading') || list.querySelector('.notif-empty');
+            if (emptyMsg) emptyMsg.remove();
+
+            const item = createNotificationItem(notification);
+            list.prepend(item);
+        }
+    });
+
+    try {
+        await connection.start();
+        console.log("SignalR Connected!");
+    } catch (err) {
+        console.error("SignalR Connection Failed: ", err);
+    }
+}
+
+function createNotificationItem(n) {
+    const item = document.createElement('div');
+    item.className = `notif-item ${n.isRead ? 'read' : 'unread'}`;
+    item.dataset.id = n.id;
+
+    // Content Container
+    const left = document.createElement('div');
+    left.className = 'notif-left';
+    left.innerHTML = `
+        ${getIconHtml(n.type)}
+        <div class="notif-content">
+            <div class="notif-title">${n.title || 'Bildirim'}</div>
+            <div class="notif-message">${n.message}</div>
+            <div class="notif-date">${getDateDisplay(n.createdAt || new Date())}</div>
+        </div>
+    `;
+    left.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleNotificationClick(n.id, n.isRead);
+    };
+
+    // Actions Container
+    const actions = document.createElement('div');
+    actions.className = 'notif-actions';
+
+    // Delete Button
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'notif-action-btn delete-btn';
+    deleteBtn.title = 'Sil';
+    deleteBtn.innerHTML = '🗑️';
+    deleteBtn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        removeNotification(e, n.id);
+    };
+    actions.appendChild(deleteBtn);
+
+    // Mark Read Button (if unread)
+    if (!n.isRead) {
+        const readBtn = document.createElement('button');
+        readBtn.type = 'button';
+        readBtn.className = 'notif-action-btn read-btn';
+        readBtn.title = 'Okundu işaretle';
+        readBtn.innerHTML = '📩';
+        readBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            markAsRead(e, n.id);
+        };
+        actions.appendChild(readBtn);
+    }
+
+    item.appendChild(left);
+    item.appendChild(actions);
+    return item;
+}
+
+// Start SignalR if user is logged in (Safe check, no redirect)
 const savedToken = sessionStorage.getItem('token') || localStorage.getItem('token');
 if (savedToken) {
-    startNotificationPolling();
+    // Initial fetch to populate list
+    loadNotifications();
+    // Start Real-time
+    initializeSignalR();
 }
 
 // --- LOGIN LOGIC (Safe Append) ---

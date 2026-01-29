@@ -33,7 +33,7 @@ namespace BanuPool.API.Controllers
             return CreatedAtAction(nameof(GetRide), new { id = createdRide.Id }, createdRide);
         }
 
-        [HttpGet]
+        [HttpGet("search")]
         public async Task<ActionResult<IEnumerable<BanuPool.API.DTOs.RideDto>>> SearchRides([FromQuery] string? origin, [FromQuery] string? destination, [FromQuery] int? userId)
         {
             try
@@ -129,7 +129,7 @@ namespace BanuPool.API.Controllers
             return await _rideService.GetRidesForPassengerAsync(userId);
         }
         [HttpGet("driver/{userId}")]
-        public async Task<ActionResult<IEnumerable<Ride>>> GetDriverRides(int userId)
+        public async Task<ActionResult<IEnumerable<Ride>>> GetDriverRides(int userId, [FromQuery] bool history = false)
         {
             // Security check
             var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value 
@@ -137,8 +137,26 @@ namespace BanuPool.API.Controllers
             
             if (userIdClaim == null || int.Parse(userIdClaim) != userId) return Unauthorized();
 
-            var rides = await _rideService.GetRidesForDriverAsync(userId);
+            var rides = await _rideService.GetRidesForDriverAsync(userId, history);
             return Ok(rides);
         }
+
+        [HttpPost("{id}/archive")]
+        public async Task<IActionResult> ArchiveRide(int id)
+        {
+            var success = await _rideService.ArchiveRideAsync(id);
+            if (!success) return BadRequest($"Could not archive ride {id} (Not found or error)");
+            return Ok(new { message = "Ride archived" });
+        }
+
+        [HttpPost("{id}/cancel")]
+        public async Task<IActionResult> CancelRide(int id, [FromBody] CancelRequest request)
+        {
+            var success = await _rideService.CancelRideAsync(id, request.Reason);
+            if (!success) return BadRequest("Could not cancel ride");
+            return Ok(new { message = "Ride cancelled" });
+        }
+
+        public class CancelRequest { public string Reason { get; set; } }
     }
 }

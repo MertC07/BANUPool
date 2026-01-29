@@ -13,6 +13,10 @@ namespace BanuPool.Core.Entities
         public string Origin { get; set; } = string.Empty;
         public string Destination { get; set; } = string.Empty;
         public DateTime DepartureTime { get; set; }
+        public bool IsArchived { get; set; } = false; // Soft Delete
+        public BanuPool.Core.Enums.RideStatus Status { get; set; } = BanuPool.Core.Enums.RideStatus.Active;
+        public string? CancelReason { get; set; }
+        public DateTime? CancelTime { get; set; }
         
         public int VehicleId { get; set; }
         public Vehicle? Vehicle { get; set; }

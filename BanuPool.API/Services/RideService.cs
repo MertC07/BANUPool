@@ -64,6 +64,7 @@ namespace BanuPool.API.Services
                 .Include(r => r.Driver)
                 .Include(r => r.Vehicle)
                 .Include(r => r.Reservations) // Need this for filtering
+                .Where(r => !r.IsArchived && r.DepartureTime > DateTime.Now && r.Status != BanuPool.Core.Enums.RideStatus.Cancelled) // Filter archived AND expired AND cancelled
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(origin))
@@ -76,10 +77,13 @@ namespace BanuPool.API.Services
                 query = query.Where(r => r.Destination.Contains(destination));
             }
 
-            // Exclude rides where the current user has a reservation
+            // Exclude rides where the current user has a reservation OR is the driver
             if (currentUserId.HasValue)
             {
-                query = query.Where(r => !r.Reservations.Any(res => res.PassengerId == currentUserId.Value));
+                query = query.Where(r => 
+                    r.DriverId != currentUserId.Value && // Don't show own rides
+                    !r.Reservations.Any(res => res.PassengerId == currentUserId.Value) // Don't show reserved rides
+                );
             }
 
             // LIFECYCLE: Exclude expired rides from public search
@@ -111,6 +115,7 @@ namespace BanuPool.API.Services
                 _context.Reservations.Add(reservation);
                 
                 // Update Ride state (ReservedSeats is updated in object, need to save)
+                ride.Status = BanuPool.Core.Enums.RideStatus.HasPassengers;
                 _context.Entry(ride).State = EntityState.Modified;
                 
                 // Create Notification for Driver
@@ -144,6 +149,10 @@ namespace BanuPool.API.Services
             if (ride != null)
             {
                 ride.CancelSeat();
+                if (ride.ReservedSeats == 0) 
+                {
+                    ride.Status = BanuPool.Core.Enums.RideStatus.Active;
+                }
                 _context.Entry(ride).State = EntityState.Modified;
 
                 // Notify Driver about cancellation
@@ -173,6 +182,12 @@ namespace BanuPool.API.Services
         {
             var existingRide = await _context.Rides.FindAsync(ride.Id);
             if (existingRide == null) return null;
+
+            // STATE PATTERN VALIDATION: Prevent editing if passengers exist
+            if (existingRide.Status == BanuPool.Core.Enums.RideStatus.HasPassengers || existingRide.ReservedSeats > 0)
+            {
+                 throw new InvalidOperationException("Bu ilanda yolcu var, düzenleme yapılamaz.");
+            }
 
             // Update allowed fields
             existingRide.Origin = ride.Origin;
@@ -236,22 +251,112 @@ namespace BanuPool.API.Services
             var rides = await _context.Rides
                 .Include(r => r.Driver)
                 .Include(r => r.Vehicle)
-                .Where(r => rideIds.Contains(r.Id))
+                .Where(r => rideIds.Contains(r.Id) && r.Status != BanuPool.Core.Enums.RideStatus.Cancelled)
                 .OrderBy(r => r.DepartureTime)
                 .ToListAsync();
             
             return rides;
         }
 
-        public async Task<IEnumerable<Ride>> GetRidesForDriverAsync(int driverId)
+        public async Task<IEnumerable<Ride>> GetRidesForDriverAsync(int driverId, bool historyMode = false)
         {
-            return await _context.Rides
+            var query = _context.Rides
                 .Include(r => r.Vehicle)
                 .Include(r => r.Reservations)
                 .ThenInclude(res => res.Passenger)
-                .Where(r => r.DriverId == driverId)
-                .OrderByDescending(r => r.DepartureTime) // Show newest (or future) first, but typically list all
-                .ToListAsync();
+                .Where(r => r.DriverId == driverId && !r.IsArchived) // Always hide archived
+                .AsQueryable();
+
+            if (!historyMode)
+            {
+                // ACTIVE TAB: Future Active Rides 
+                // We filter OUT cancelled rides even if future
+                query = query.Where(r => 
+                    r.Status != BanuPool.Core.Enums.RideStatus.Cancelled && 
+                    r.Status != BanuPool.Core.Enums.RideStatus.Completed &&
+                    r.DepartureTime > DateTime.Now);
+                
+                // Sort by nearest date first
+                query = query.OrderBy(r => r.DepartureTime);
+            }
+            else
+            {
+                // HISTORY TAB: Cancelled, Completed, OR Expired
+                query = query.Where(r => 
+                    r.Status == BanuPool.Core.Enums.RideStatus.Cancelled || 
+                    r.Status == BanuPool.Core.Enums.RideStatus.Completed || 
+                    r.DepartureTime <= DateTime.Now);
+                
+                // Sort by newest first (descending)
+                query = query.OrderByDescending(r => r.DepartureTime);
+            }
+
+            return await query.ToListAsync();
+        }
+
+        public async Task<bool> ArchiveRideAsync(int rideId) 
+        {
+            var ride = await _context.Rides.FindAsync(rideId);
+            if (ride == null) return false;
+
+            ride.IsArchived = true;
+            _context.Entry(ride).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> CancelRideAsync(int rideId, string reason)
+        {
+            var ride = await _context.Rides
+                .Include(r => r.Driver)
+                .Include(r => r.Reservations)
+                .FirstOrDefaultAsync(r => r.Id == rideId);
+
+            if (ride == null) return false;
+
+            // 1. Check for Penalty
+            if (ride.Reservations.Any())
+            {
+                var timeRemaining = ride.DepartureTime - DateTime.Now;
+                double penalty = 0.0;
+
+                if (timeRemaining.TotalHours < 2)
+                {
+                    penalty = 20.0; // Major penalty
+                }
+                else if (timeRemaining.TotalHours < 24)
+                {
+                    penalty = 1.0; // Minor penalty
+                }
+
+                if (penalty > 0 && ride.Driver != null)
+                {
+                    ride.Driver.ReputationScore -= penalty;
+                    if (ride.Driver.ReputationScore < 0) ride.Driver.ReputationScore = 0;
+                    _context.Entry(ride.Driver).State = EntityState.Modified;
+                }
+
+                // 2. Notify Passengers
+                foreach (var res in ride.Reservations)
+                {
+                     await _notificationService.CreateNotificationAsync(
+                        res.PassengerId,
+                        "Yolculuk İptali ⚠️",
+                        $"Sürücü yolculuğu iptal etti. Neden: {reason}",
+                        "error",
+                        ride.Id
+                    );
+                }
+            }
+
+            // 3. Update Status
+            ride.Status = BanuPool.Core.Enums.RideStatus.Cancelled;
+            ride.CancelReason = reason;
+            ride.CancelTime = DateTime.Now;
+            
+            _context.Entry(ride).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+            return true;
         }
     }
 }
