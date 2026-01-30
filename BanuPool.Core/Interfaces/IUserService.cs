@@ -7,6 +7,7 @@ namespace BanuPool.Core.Interfaces
     {
         Task<BaseUser?> GetUserByIdAsync(int id);
         Task<Vehicle?> GetVehicleByUserIdAsync(int userId);
-        Task<BaseUser> UpdateUserAsync(BaseUser user, Vehicle? vehicle);
+        Task<BaseUser> UpdateUserAsync(BaseUser user, Vehicle? vehicleUpdate);
+        Task UpdateProfilePhotoAsync(int userId, string photoPath);
     }
 }

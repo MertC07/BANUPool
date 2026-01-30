@@ -113,7 +113,8 @@ function checkAuth() {
 }
 
 function getUserId() {
-    return sessionStorage.getItem('userId') || localStorage.getItem('userId');
+    const id = sessionStorage.getItem('userId') || localStorage.getItem('userId');
+    return (id && id !== 'undefined' && id !== 'null') ? id : null;
 }
 
 function logout() {
@@ -132,6 +133,8 @@ function updateNavigation() {
     const isProfile = path.includes('profile.html');
     const isIndex = path.includes('index.html') || path.endsWith('/');
 
+    // Revert to simple check as per user request to restore "old" behavior
+    // Page-level checks will handle broken sessions
     if (token) {
         navLinks.innerHTML = `
             <a href="index.html" class="${isIndex ? 'active' : ''}">Ana Sayfa</a>
@@ -232,6 +235,20 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.removeItem('rideAction');
         switchTab('reservations');
         showToast('Rezervasyonunuz iptal edildi. ❌');
+    }
+
+    // CHECK FLASH MESSAGE (Login Page)
+    if (localStorage.getItem('registrationSuccess')) {
+        localStorage.removeItem('registrationSuccess');
+        showToast('Hesabınız oluşturuldu. Lütfen giriş yapınız. 🎉');
+    }
+
+    // ROUTE-BASED INITIALIZATION
+    const path = window.location.pathname;
+    if (path.includes('profile.html')) {
+        loadProfile();
+    } else if (path.includes('dashboard.html')) {
+        // initDashboard() if exists
     }
 });
 
@@ -1413,33 +1430,65 @@ function toggleDriverFields() {
 }
 
 function validatePhoneFormat(input) {
-    let raw = input.value.replace(/\D/g, ''); // Strip non-digits
+    let raw = input.value;
 
-    // Auto-fix: Ensure starts with 0 if user enters 5...
-    if (raw.length > 0 && raw[0] !== '0') {
-        raw = '0' + raw;
+    // 1. Remove invalid chars (keep digits and leading +)
+    // Only allow + at the very start
+    let clean = raw.replace(/[^\d+]/g, '');
+    if (clean.includes('+') && !clean.startsWith('+')) {
+        clean = clean.replace(/\+/g, ''); // strip mid-string pluses
     }
 
-    // Limit to 11 digits (05XX...)
-    if (raw.length > 11) raw = raw.substring(0, 11);
+    // 2. Formatting Logic
+    let formatted = clean;
+    const isInternational = clean.startsWith('+');
 
-    // Format: 05XX XXX XX XX
-    let formatted = raw;
-    if (raw.length > 4) {
-        formatted = raw.substring(0, 4) + ' ' + raw.substring(4);
+    if (!isInternational) {
+        // Local (TR) Logic: If starts with 05 or just 5, assume TR mask
+        if (clean.startsWith('05') || (clean.startsWith('5') && clean.length <= 10)) {
+            // Auto-prefix 0 if user types 5
+            if (clean.startsWith('5')) clean = '0' + clean;
+
+            // Limit to 11 digits for TR
+            if (clean.length > 11) clean = clean.substring(0, 11);
+
+            // Apply TR Mask: 05XX XXX XX XX
+            formatted = clean;
+            if (clean.length > 4) formatted = clean.substring(0, 4) + ' ' + clean.substring(4);
+            if (clean.length > 7) formatted = formatted.substring(0, 8) + ' ' + clean.substring(7); // fixed index logic
+            if (clean.length > 9) formatted = formatted.substring(0, 11) + ' ' + clean.substring(9);
+
+            // Re-construct correctly based on clean chunks
+            let parts = [];
+            parts.push(clean.substring(0, 4));
+            if (clean.length > 4) parts.push(clean.substring(4, 7));
+            if (clean.length > 7) parts.push(clean.substring(7, 9));
+            if (clean.length > 9) parts.push(clean.substring(9, 11));
+            formatted = parts.join(' ').trim();
+        }
     }
-    if (raw.length > 7) {
-        formatted = formatted.substring(0, 8) + ' ' + raw.substring(7);
-    }
-    if (raw.length > 9) {
-        formatted = formatted.substring(0, 11) + ' ' + raw.substring(9);
-    }
+    // For international, we leave it mostly raw but maybe space after country code? 
+    // Too complex to guess all CCs. Leave as +XXXXXXXX.. or just raw digits.
 
     input.value = formatted;
 
+    // 3. Validation Logic
     const btn = document.getElementById('verifyPhoneBtn');
-    // Check if valid (11 digits starting with 05)
-    const isValid = (raw.length === 11 && raw.startsWith('05'));
+
+    // Remove spaces for checking length
+    const checkRaw = clean.replace(/\D/g, ''); // Digits only
+
+    // Rules:
+    // - Must have 10-15 digits
+    // - Must start with + OR 0
+    let isValid = false;
+
+    if (checkRaw.length >= 10 && checkRaw.length <= 15) {
+        if (clean.startsWith('+') || clean.startsWith('0')) {
+            isValid = true;
+        }
+    }
+
     btn.disabled = !isValid;
 
     // Reset verification if changed
@@ -1447,10 +1496,17 @@ function validatePhoneFormat(input) {
         isPhoneVerified = false;
         btn.innerText = "Doğrula";
         btn.classList.remove('btn-success');
-        btn.classList.add('btn-secondary');
-        document.getElementById('registerBtn').disabled = true;
-        document.getElementById('registerBtn').innerText = "Kayıt Ol (Telefon Doğrulanmalı)";
-        document.getElementById('registerBtn').style.opacity = "0.6";
+        btn.classList.add('btn-text'); // Fallback or secondary
+        btn.style.backgroundColor = ""; // Reset inline
+        btn.style.color = "";
+
+        // Re-disable register
+        const regBtn = document.getElementById('registerBtn');
+        if (regBtn) {
+            regBtn.disabled = true;
+            regBtn.innerText = "Kayıt Ol (Telefon Doğrulanmalı)";
+            regBtn.style.opacity = "0.6";
+        }
     }
 }
 
@@ -1529,15 +1585,25 @@ if (loginForm) {
     });
 }
 
-function getUserId() {
-    return sessionStorage.getItem('userId') || localStorage.getItem('userId');
-}
+
 
 // --- PROFILE MANAGEMENT ---
+function toggleProfileDriverFields() {
+    const isDriver = document.getElementById('pIsDriver')?.checked;
+    const fields = document.getElementById('profileVehicleFields');
+    if (fields) fields.style.display = isDriver ? 'block' : 'none';
+}
+
+
 async function loadProfile() {
     const token = checkAuth();
     const userId = getUserId();
-    if (!userId) return;
+
+    if (!userId) {
+        console.warn("User ID not found, redirecting to login.");
+        window.location.href = 'login.html';
+        return;
+    }
 
     // CHECK FLASH MESSAGE (Profile)
     if (localStorage.getItem('profileSuccess')) {
@@ -1559,13 +1625,112 @@ async function loadProfile() {
         document.getElementById('pPhone').value = data.phoneNumber;
         document.getElementById('pUserType').value = data.userType;
 
+        // Update Modern Header Name
+        const nameDisplay = document.querySelector('.user-fullname');
+        if (nameDisplay) nameDisplay.textContent = `${data.firstName} ${data.lastName}`;
+
+        // Photo & Trust Badge
+        // Photo & Trust Badge
+        if (data.profilePhotoUrl) {
+            // Clean up path: remove duplicate slashes if any
+            let photoPath = data.profilePhotoUrl;
+            if (photoPath.startsWith('/')) photoPath = photoPath.substring(1); // remove leading slash
+
+            // Assuming API_URL is http://localhost:5200/api
+            // We want http://localhost:5200/uploads/...
+            const baseUrl = API_URL.replace('/api', '');
+            // Ensure baseUrl ends with slash
+            const finalBaseUrl = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/';
+
+            document.getElementById('profileImage').src = finalBaseUrl + photoPath;
+        }
+
+        // Trust Score logic
+        if (typeof data.reputationScore !== 'undefined') {
+            const scoreEl = document.getElementById('trustScore');
+            if (scoreEl) scoreEl.innerText = data.reputationScore.toFixed(1);
+        }
+
         if (data.vehicle) {
+            document.getElementById('pIsDriver').checked = true;
             document.getElementById('vPlate').value = data.vehicle.plateNumber;
             document.getElementById('vModel').value = data.vehicle.model;
             document.getElementById('vColor').value = data.vehicle.color;
+        } else {
+            document.getElementById('pIsDriver').checked = false;
         }
+        toggleProfileDriverFields();
     } catch (err) { showError(err.message); }
 }
+
+
+
+// Safe Trigger for File Input
+function triggerFileInput(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    document.getElementById('profileUpload').click();
+}
+
+// Modern Preview & Upload Logic
+async function previewAndUpload(input) {
+    if (!input.files || !input.files[0]) return;
+
+    const file = input.files[0];
+    const imgElement = document.getElementById('profileImage');
+
+    // 1. Client-Side Preview (Instant Feedback)
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        imgElement.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+
+    // 2. Background Upload
+    const formData = new FormData();
+    formData.append('file', file);
+    const userId = getUserId();
+    const token = checkAuth();
+
+    try {
+        // Optional: Show a subtle loading state on the edit button or elsewhere
+        const btn = document.querySelector('.btn-edit-avatar');
+        if (btn) btn.innerHTML = '⏳'; // Loading icon
+
+        const res = await fetch(`${API_URL}/users/${userId}/photo`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: formData
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            // Success feedback
+            if (btn) btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`; // Check Icon
+            setTimeout(() => {
+                // Restore camera icon
+                if (btn) btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>`;
+            }, 2000);
+
+            // Update trust score if returned
+            if (data.newScore) {
+                const badge = document.getElementById('trustScore');
+                if (badge) badge.innerText = data.newScore.toFixed(1);
+            }
+            showToast("Fotoğraf güncellendi! 📸");
+        } else {
+            const txt = await res.text();
+            showError("Yükleme başarısız: " + txt);
+            // Revert image if failed? optionally
+        }
+    } catch (err) {
+        console.error(err);
+        showError("Hata: " + err.message);
+    }
+}
+
 
 async function updateProfile(e) {
     e.preventDefault();
@@ -1582,10 +1747,10 @@ async function updateProfile(e) {
         vehicle: null
     };
 
-    const plate = document.getElementById('vPlate').value;
-    if (plate) {
+    const isDriver = document.getElementById('pIsDriver').checked;
+    if (isDriver) {
         dto.vehicle = {
-            plateNumber: plate,
+            plateNumber: document.getElementById('vPlate').value,
             model: document.getElementById('vModel').value,
             color: document.getElementById('vColor').value
         };
@@ -1716,15 +1881,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // CHECK FLASH MESSAGE (Login Page)
-    if (localStorage.getItem('registrationSuccess')) {
-        localStorage.removeItem('registrationSuccess');
-        // Delay slightly to ensure page is ready
-        // Delay slightly to ensure page is ready
-        setTimeout(() => {
-            showToast('Hesabınız oluşturuldu. Lütfen giriş yapınız. 🎉');
-        }, 300);
-    }
+
 });
 
 function logout() {
@@ -2169,8 +2326,21 @@ async function showNotifications() {
         <div class="notif-list" style="max-height:400px; overflow-y:auto; text-align:left; padding-right:5px;">
             ${notes.map(n => `
                 <div class="notif-item read" id="notif-${n.id}" style="padding:12px; border-radius:8px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:start; transition:all 0.2s; border:1px solid transparent; opacity:0.8;">
+                    <!-- Avatar Section -->
+                    <div onclick="window.location.href='public-profile.html?id=${n.senderId || 0}'" style="cursor: pointer; margin-right: 12px; flex-shrink: 0;">
+                         ${n.senderPhoto
+            ? `<img src="${API_URL.replace('/api', '')}${n.senderPhoto}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #e2e8f0;">`
+            : `<div style="width: 40px; height: 40px; border-radius: 50%; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem;">
+                                ${n.senderName ? n.senderName.substring(0, 2).toUpperCase() : 'B'}
+                               </div>`
+        }
+                    </div>
+
                     <div style="flex:1; padding-right:10px;">
-                        <span style="display:block; font-weight:500; color:var(--text-primary); margin-bottom:4px; line-height:1.4;">${n.message}</span>
+                        <span style="display:block; font-weight:500; color:var(--text-primary); margin-bottom:4px; line-height:1.4;">
+                            <strong style="cursor:pointer;" onclick="window.location.href='public-profile.html?id=${n.senderId || 0}'">${n.senderName || 'Sistem'}</strong> 
+                            ${n.message.replace(n.senderName, '')}
+                        </span>
                         <div style="font-size:0.75rem; color:var(--text-secondary);">
                             ${new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </div>

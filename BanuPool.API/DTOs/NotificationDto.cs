@@ -12,6 +12,7 @@ namespace BanuPool.API.DTOs
         public int? RideId { get; set; }
         public int? SenderId { get; set; }
         public string SenderName { get; set; } = string.Empty;
+        public string SenderPhoto { get; set; } = string.Empty;
         public string SenderInitials { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
     }

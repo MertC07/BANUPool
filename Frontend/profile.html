@@ -16,7 +16,7 @@
     </script>
 </head>
 
-<body onload="loadProfile()">
+<body>
     <nav>
         <a href="index.html" class="logo">BANÜ-Pool</a>
         <div class="nav-links">
@@ -29,10 +29,48 @@
 
     <div class="container">
         <div class="profile-container">
-            <div class="profile-header">
-                <div class="profile-icon">👤</div>
-                <h2>Profil Bilgileri</h2>
-                <p>Kişisel bilgilerinizi ve araç detaylarınızı buradan güncelleyebilirsiniz.</p>
+            <!-- Modern Profile Header -->
+            <div class="profile-header-modern" style="text-align: center; margin-bottom: 2rem; position: relative;">
+
+                <div class="avatar-wrapper"
+                    style="position: relative; width: 140px; height: 140px; margin: 0 auto 1rem;">
+                    <!-- Circular Avatar Mask -->
+                    <div class="avatar-circle"
+                        style="width: 100%; height: 100%; border-radius: 50%; overflow: hidden; border: 4px solid white; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); position: relative; background: #fff;">
+                        <img id="profileImage" src="https://via.placeholder.com/150?text=USER" alt="Profil"
+                            style="width: 100%; height: 100%; object-fit: cover;">
+                    </div>
+
+                    <!-- Trust Score Badge (Top Right) -->
+                    <div class="trust-badge-overlay"
+                        style="position: absolute; top: 0; right: 0; background: #10b981; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 10;"
+                        title="Güven Puanı">
+                        <span id="trustScore" style="font-size: 0.85rem; font-weight: bold;">5.0</span>
+                    </div>
+
+                    <!-- Edit Button (Bottom Right) -->
+                    <button type="button" class="btn-edit-avatar" onclick="triggerFileInput(event)"
+                        style="position: absolute; bottom: 5px; right: 5px; width: 40px; height: 40px; border-radius: 50%; background: var(--primary-color); border: 2px solid white; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: transform 0.2s; z-index: 10;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z">
+                            </path>
+                            <circle cx="12" cy="13" r="4"></circle>
+                        </svg>
+                    </button>
+
+                    <!-- Hidden File Input -->
+                    <input type="file" id="profileUpload" accept="image/*" style="display: none;"
+                        onchange="previewAndUpload(this)">
+                </div>
+
+                <!-- User Info -->
+                <div class="profile-info-display">
+                    <h2 class="user-fullname"
+                        style="margin-bottom: 0.5rem; font-size: 1.5rem; color: var(--text-primary);">Yükleniyor...</h2>
+                    <!-- Badge moved to avatar, info text can remain simple or add title -->
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Güvenilir Üye</p>
+                </div>
             </div>
 
             <form id="profileForm" action="javascript:void(0);" onsubmit="event.preventDefault(); updateProfile(event)">
@@ -64,22 +102,33 @@
                     <input type="text" id="pUserType" disabled class="input-disabled highlight">
                 </div>
 
-                <h3 class="section-heading" style="margin-top: 2rem;">Araç Bilgileri</h3>
-                <p class="section-subtext">Sadece sürücüyseniz doldurunuz.</p>
+                <h3 class="section-heading" style="margin-top: 2rem;">Sürücü Durumu</h3>
 
-                <div class="form-group">
-                    <label>Plaka</label>
-                    <input type="text" id="vPlate" placeholder="10 ABC 123">
+                <div class="form-group"
+                    style="display: flex; align-items: center; gap: 0.5rem; background: #f3f4f6; padding: 0.75rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+                    <input type="checkbox" id="pIsDriver" onchange="toggleProfileDriverFields()"
+                        style="width: auto; margin: 0;">
+                    <label for="pIsDriver" style="margin: 0; font-weight: 600; cursor: pointer;">Sürücüyüm</label>
                 </div>
 
-                <div style="display: flex; gap: 1rem;">
-                    <div class="form-group" style="flex: 1;">
-                        <label>Model</label>
-                        <input type="text" id="vModel" placeholder="Fiat Egea">
+                <div id="profileVehicleFields"
+                    style="display: none; border-left: 3px solid var(--primary-color); padding-left: 1rem;">
+                    <h4 style="margin: 0 0 1rem 0; color: var(--primary-color);">Araç Bilgileri</h4>
+
+                    <div class="form-group">
+                        <label>Plaka</label>
+                        <input type="text" id="vPlate" placeholder="10 ABC 123">
                     </div>
-                    <div class="form-group" style="flex: 1;">
-                        <label>Renk</label>
-                        <input type="text" id="vColor" placeholder="Beyaz">
+
+                    <div style="display: flex; gap: 1rem;">
+                        <div class="form-group" style="flex: 1;">
+                            <label>Model</label>
+                            <input type="text" id="vModel" placeholder="Fiat Egea">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label>Renk</label>
+                            <input type="text" id="vColor" placeholder="Beyaz">
+                        </div>
                     </div>
                 </div>
 

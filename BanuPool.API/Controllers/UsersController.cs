@@ -33,6 +33,8 @@ namespace BanuPool.API.Controllers
                 Email = user.Email,
                 PhoneNumber = user.PhoneNumber,
                 UserType = user is Student ? "Öğrenci" : "Akademisyen",
+                ReputationScore = user.ReputationScore,
+                ProfilePhotoUrl = user.ProfilePhotoPath,
                 Vehicle = vehicle != null ? new VehicleDto
                 {
                     PlateNumber = vehicle.PlateNumber,
@@ -42,6 +44,87 @@ namespace BanuPool.API.Controllers
             };
 
             return Ok(dto);
+        }
+
+
+        [HttpPost("{id}/photo")]
+        public async Task<IActionResult> UploadPhoto(int id, IFormFile file)
+        {
+            var user = await _userService.GetUserByIdAsync(id);
+            if (user == null) return NotFound("Kullanıcı bulunamadı.");
+
+            if (file == null || file.Length == 0)
+                return BadRequest("Lütfen bir fotoğraf yükleyiniz.");
+
+            // 1. Validate File Type (Basic)
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (!allowedExtensions.Contains(ext))
+                return BadRequest("Sadece JPG, PNG veya WEBP formatları desteklenir.");
+
+            // 2. Prepare Directory
+            var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "profiles");
+            if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
+
+            // 3. Generate Filename (userid.ext)
+            var fileName = $"{id}_{Guid.NewGuid()}{ext}"; // Unique name to prevent caching issues
+            var filePath = Path.Combine(uploadsFolder, fileName);
+
+            // 4. Save File
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            // 5. Update User & Reputation
+            // If first time uploading, give bonus
+            bool isFirstTime = string.IsNullOrEmpty(user.ProfilePhotoPath);
+            
+            // Delete old photo if exists
+            if (!string.IsNullOrEmpty(user.ProfilePhotoPath))
+            {
+                var oldPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", user.ProfilePhotoPath.TrimStart('/'));
+                if (System.IO.File.Exists(oldPath)) System.IO.File.Delete(oldPath);
+            }
+
+            user.ProfilePhotoPath = $"/uploads/profiles/{fileName}";
+            
+            if (isFirstTime)
+            {
+                user.ReputationScore = Math.Min(5.0, user.ReputationScore + 0.5); // Max 5.0 cap? User didn't specify, but let's cap at 5.0 or keep it open?
+                // The request says "add trust score". Usually 5 is max. 
+                // Let's assume 5 is NOT max strictly in this custom logic, or maybe it is. 
+                // Let's increment but maybe cap at 5 if it was default. 
+                // Actually, let's just add 0.5. If it goes above 5, so be it (super trusted).
+                // Or standard logic: 5 is usually max. Let's cap at 5.0 for now to be safe, unless user requests otherwise.
+                // Wait, if everyone starts at 5.0, then it should go UP? 
+                // Ah, User said "Trust Score artırsın". If it starts at 5, maybe it can go to 5.5?
+                // Let's allow it to go above 5.0 for "Verified" status.
+                user.ReputationScore += 0.5;
+            }
+
+            // We need a way to save this via Service or Repo
+            // Since Interface didn't have specific UpdatePhoto, we can use UpdateUserAsync hack or add new method.
+            // But UpdateUserAsync takes "vehicleUpdate". 
+            // Let's assume we can just save via context if we injected it, but we injected Service.
+            // Does Service have a generic Update?
+            // Service.UpdateUserAsync updates checks fields.
+            // Let's modify Service to allow updating just the entity state if we pass it back?
+            // Actually, we should probably add `UpdatePhotoAsync` to interface. 
+            // For speed, let's cast _userService to concrete or adjust logic.
+            // Better: Update `UpdateUserAsync` to handle this or just call context directly? No context here.
+            
+            // Quick fix: Add specific method to UserService and Interface.
+            // OR reuse UpdateUserAsync but that overrides names.
+            
+            // Refactor Idea: Let's just update the user logic in service. 
+            // I will update UserService first.
+            
+            // Wait, I can't call a method that doesn't exist yet. 
+            // I will add `UpdateProfilePhotoAsync` to Service first.
+            await _userService.UpdateProfilePhotoAsync(id, user.ProfilePhotoPath);
+
+            return Ok(new { path = user.ProfilePhotoPath, newScore = user.ReputationScore });
         }
 
         [HttpPut("{id}")]

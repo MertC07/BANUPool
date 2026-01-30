@@ -39,6 +39,7 @@ namespace BanuPool.API.Services
             // Note: Password update should be separate service with hashing
 
             // Update Vehicle if provided
+            // Update Vehicle
             if (vehicleUpdate != null)
             {
                 var existingVehicle = await _context.Vehicles.FirstOrDefaultAsync(v => v.OwnerId == user.Id);
@@ -62,11 +63,32 @@ namespace BanuPool.API.Services
                     _context.Vehicles.Add(newVehicle);
                 }
             }
+            else
+            {
+                // If vehicleUpdate is null, it means the user is not a driver anymore (or never was)
+                // Remove existing vehicle if present
+                var existingVehicle = await _context.Vehicles.FirstOrDefaultAsync(v => v.OwnerId == user.Id);
+                if (existingVehicle != null)
+                {
+                    _context.Vehicles.Remove(existingVehicle);
+                }
+            }
 
             _context.Entry(existingUser).State = EntityState.Modified;
             await _context.SaveChangesAsync();
 
             return existingUser;
         }
+
+        public async Task UpdateProfilePhotoAsync(int userId, string photoPath)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user != null)
+            {
+                user.ProfilePhotoPath = photoPath;
+                await _context.SaveChangesAsync();
+            }
+        } 
+
     }
 }

@@ -112,7 +112,10 @@ using (var scope = app.Services.CreateScope())
                 CreatedAt TEXT NOT NULL
             );
         ");
-    } catch { } 
+    } catch { }
+
+    // MIGRATION: Profile Photo
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE Users ADD COLUMN ProfilePhotoPath TEXT"); } catch { } 
 
 }
 
@@ -124,6 +127,7 @@ if (app.Environment.IsDevelopment())
 
 // app.UseHttpsRedirection(); // Disable for local dev to avoid SSL Cert errors in Fetch
 
+app.UseStaticFiles(); // Enable serving files from wwwroot
 app.UseCors("AllowAll"); // Enable CORS
 
 app.UseAuthentication(); // Enable Auth

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kullanıcı Profili | BANÜ-Pool</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        const API_URL = "http://localhost:5200/api";
+        const urlParams = new URLSearchParams(window.location.search);
+        const userId = urlParams.get('id');
+
+        if (!userId) {
+            window.location.href = 'index.html';
+        }
+
+        async function loadPublicProfile() {
+            try {
+                // Determine if we are viewing our own profile?
+                const currentUserId = sessionStorage.getItem('userId') || localStorage.getItem('userId');
+                if (currentUserId && currentUserId == userId) {
+                    window.location.href = 'profile.html';
+                    return;
+                }
+
+                const res = await fetch(`${API_URL}/users/${userId}`);
+                if (!res.ok) throw new Error('Kullanıcı bulunamadı');
+
+                const data = await res.json();
+
+                document.getElementById('pName').innerText = `${data.firstName} ${data.lastName}`;
+                document.getElementById('pUserType').innerText = data.userType;
+                document.getElementById('pScore').innerText = data.reputationScore ? data.reputationScore.toFixed(1) : '5.0';
+
+                // Photo
+                if (data.profilePhotoUrl) {
+                    document.getElementById('profileImage').src = `${API_URL.replace('/api', '')}${data.profilePhotoUrl}`;
+                }
+
+                // Vehicle Info
+                if (data.vehicle) {
+                    document.getElementById('driverInfoSection').style.display = 'block';
+                    document.getElementById('vModel').innerText = data.vehicle.model;
+                    document.getElementById('vColor').innerText = data.vehicle.color;
+                    // Note: We might hide Plate Number for privacy if requested, but user said "Kişisel verileri hariç". 
+                    // Plate number is usually semi-public in ride apps but let's hide it for "Public Profile" unless booked?
+                    // User said "Kişisel verileri hariç". Phone/Email is personal. Plate is debatable. 
+                    // I will hide plate to be safe, show only model/color.
+                }
+
+            } catch (e) {
+                Swal.fire('Hata', 'Profil yüklenemedi.', 'error').then(() => window.location.href = 'index.html');
+            }
+        }
+    </script>
+</head>
+
+<body onload="loadPublicProfile()">
+    <nav>
+        <a href="index.html" class="logo">BANÜ-Pool</a>
+        <div class="nav-links">
+            <a href="index.html">Ana Sayfa</a>
+            <a href="dashboard.html">İlanlar</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="profile-container" style="text-align: center; margin-top: 3rem;">
+            <div class="profile-photo-container" style="cursor: default; border-color: var(--primary-color);">
+                <img id="profileImage" src="https://via.placeholder.com/150?text=USER" alt="Profil">
+            </div>
+
+            <h2 id="pName" style="margin-bottom: 0.5rem; color: var(--text-primary);">Yükleniyor...</h2>
+
+            <div style="display: flex; justify-content: center; gap: 1rem; margin-bottom: 2rem;">
+                <span class="status-badge" style="background: var(--primary-color); color: white;"
+                    id="pUserType">-</span>
+                <span class="status-badge" style="background: #e0f2fe; color: #0284c7;">🛡️ Güven Puanı: <b
+                        id="pScore">-</b></span>
+            </div>
+
+            <div id="driverInfoSection"
+                style="display: none; text-align: left; background: #f8fafc; padding: 1.5rem; border-radius: 12px; margin-top: 2rem;">
+                <h3
+                    style="border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem; margin-bottom: 1rem; color: var(--text-secondary);">
+                    Araç Bilgisi</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <small style="display: block; color: var(--text-secondary);">Marka/Model</small>
+                        <span style="font-weight: 600;" id="vModel">-</span>
+                    </div>
+                    <div>
+                        <small style="display: block; color: var(--text-secondary);">Renk</small>
+                        <span style="font-weight: 600;" id="vColor">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top: 2rem;">
+                <button onclick="window.history.back()" class="btn-secondary">Geri Dön</button>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

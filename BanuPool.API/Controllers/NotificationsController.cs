@@ -43,6 +43,7 @@ namespace BanuPool.API.Controllers
                     RideId = n.RideId,
                     SenderId = n.SenderId,
                     SenderName = n.Sender != null ? n.Sender.FirstName + " " + n.Sender.LastName : "Sistem",
+                    SenderPhoto = n.Sender != null ? n.Sender.ProfilePhotoPath : null,
                     SenderInitials = n.Sender != null ? (n.Sender.FirstName.Substring(0,1) + n.Sender.LastName.Substring(0,1)) : "S",
                     CreatedAt = n.CreatedAt
                 })
@@ -73,6 +74,7 @@ namespace BanuPool.API.Controllers
                     RideId = n.RideId,
                     SenderId = n.SenderId,
                     SenderName = n.Sender != null ? n.Sender.FirstName + " " + n.Sender.LastName : "Sistem",
+                    SenderPhoto = n.Sender != null ? n.Sender.ProfilePhotoPath : null,
                     SenderInitials = n.Sender != null ? (n.Sender.FirstName.Substring(0,1) + n.Sender.LastName.Substring(0,1)) : "S",
                     CreatedAt = n.CreatedAt
                 })
