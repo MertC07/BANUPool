@@ -138,16 +138,21 @@ function updateNavigation() {
             <a href="dashboard.html" class="${isDashboard ? 'active' : ''}">İlanlar</a>
             <a href="profile.html" class="${isProfile ? 'active' : ''}">Profilim</a>
             
+            <div class="notification-wrapper" style="margin-right: 15px;">
+                <a href="notifications.html" class="notification-bell">
+                    🔔
+                    <span class="notification-badge" id="notificationBadge" style="display: none;"></span>
+                </a>
+            </div>
 
-
-            <a href="javascript:void(0)" onclick="logout()">Çıkış Yap</a>
+            <a href="#" onclick="logout()">Çıkış Yap</a>
         `;
     } else {
         navLinks.innerHTML = `
             <a href="index.html" class="${isIndex ? 'active' : ''}">Ana Sayfa</a>
             <a href="dashboard.html" class="${isDashboard ? 'active' : ''}">İlanlar</a>
             <a href="login.html">Giriş Yap</a>
-            <a href="register.html" class="btn-primary">Kayıt Ol</a>
+            <a href="register.html" class="btn-primary" style="padding: 0.5rem 1.5rem; margin-left: 1rem;">Kayıt Ol</a>
         `;
     }
 }
@@ -159,6 +164,11 @@ document.addEventListener('DOMContentLoaded', () => {
     populateLocationDropdowns(); // First populate standard options
     initTheme();
     initScrollObserver();
+
+    // Initialize SignalR Notifications
+    if (typeof NotificationService !== 'undefined') {
+        NotificationService.init();
+    }
 
     // Slight delay for Choices to ensure DOM is ready
     setTimeout(() => {
@@ -186,7 +196,25 @@ document.addEventListener('DOMContentLoaded', () => {
             switchTab('my'); // Force switch to My Rides
             showToast(rideAction === 'updated' ? 'İlan Güncellendi! ✅' : 'İlan Başarıyla Oluşturuldu! 🚀');
         } else {
-            loadRides();
+            loadRides().then(() => {
+                // Check for Deep Link (Highlight)
+                const urlParams = new URLSearchParams(window.location.search);
+                const highlightId = urlParams.get('highlight');
+                if (highlightId) {
+                    setTimeout(() => {
+                        const targetCard = document.getElementById(`ride-${highlightId}`);
+                        if (targetCard) {
+                            targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            targetCard.classList.add('highlight-ride');
+                            // Remove param from URL without reload
+                            window.history.replaceState({}, document.title, window.location.pathname);
+
+                            // Remove highlight class after animation
+                            setTimeout(() => targetCard.classList.remove('highlight-ride'), 2000);
+                        }
+                    }, 500); // Small delay to ensure rendering
+                }
+            });
         }
     }
 
@@ -715,6 +743,7 @@ function createRideCard(ride) {
     const isCancelled = ride.status === 3; // Enum: Cancelled = 3
 
     const card = document.createElement('div');
+    card.id = `ride-${ride.id}`;
     card.className = `ride-card ${isExpired ? 'expired' : ''} ${isCancelled ? 'cancelled-ride-card' : ''}`;
 
     // Style separation
@@ -749,7 +778,7 @@ function createRideCard(ride) {
                         ${!canEdit ? `disabled title="${editTooltip}"` : ''}>
                         ${canEdit ? 'Düzenle' : '🔒 Düzenlenemez'}
                    </button>`}
-                         ${!isCancelled ? `<button onclick="initiateCancelRide(${ride.id})" class="btn-sm btn-danger">İptal Et</button>` : ''}
+                         ${!isCancelled && !isExpired ? `<button onclick="initiateCancelRide(${ride.id})" class="btn-sm btn-danger">İptal Et</button>` : ''}
                     </div>
                 `;
     } else {

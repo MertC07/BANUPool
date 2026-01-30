@@ -17,8 +17,8 @@ namespace BanuPool.API.DTOs
 
     public class VehicleDto
     {
-        public string PlateNumber { get; set; }
-        public string Model { get; set; }
-        public string Color { get; set; }
+        public string PlateNumber { get; set; } = string.Empty;
+        public string Model { get; set; } = string.Empty;
+        public string Color { get; set; } = string.Empty;
     }
 }

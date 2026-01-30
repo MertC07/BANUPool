@@ -30,6 +30,12 @@
             <a href="index.html">Ana Sayfa</a>
             <a href="dashboard.html" class="active">İlanlar</a>
 
+            <div class="notification-wrapper" style="margin-right: 15px;">
+                <a href="notifications.html" class="notification-bell">
+                    🔔
+                    <span class="notification-badge" id="notificationBadge"></span>
+                </a>
+            </div>
 
             <a href="#" onclick="logout()">Çıkış Yap</a>
         </div>
@@ -216,6 +222,7 @@
         </div>
     </div>
 
+    <script src="notificationService.js"></script>
     <script src="app.js"></script>
 </body>
 

@@ -59,8 +59,23 @@ builder.Services.AddAuthentication(options =>
     };
     
     // SignalR Token Handling (Query String)
-
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/rideHub"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
+
+// SignalR Service
+builder.Services.AddSignalR();
 
 var app = builder.Build();
 
@@ -83,6 +98,21 @@ using (var scope = app.Services.CreateScope())
     try { db.Database.ExecuteSqlRaw("ALTER TABLE Rides ADD COLUMN CancelReason TEXT"); } catch { }
     try { db.Database.ExecuteSqlRaw("ALTER TABLE Rides ADD COLUMN CancelTime TEXT"); } catch { }
     try { db.Database.ExecuteSqlRaw("ALTER TABLE Users ADD COLUMN ReputationScore REAL DEFAULT 5.0"); } catch { } 
+    
+    // MIGRATION: Notifications Table
+    try {
+        db.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS Notifications (
+                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                UserId INTEGER NOT NULL,
+                Title TEXT,
+                Message TEXT,
+                Type TEXT,
+                IsRead INTEGER NOT NULL DEFAULT 0,
+                CreatedAt TEXT NOT NULL
+            );
+        ");
+    } catch { } 
 
 }
 
@@ -100,6 +130,7 @@ app.UseAuthentication(); // Enable Auth
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<BanuPool.API.Hubs.RideHub>("/rideHub");
 
 
 app.Run();

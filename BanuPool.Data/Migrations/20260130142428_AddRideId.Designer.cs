@@ -3,6 +3,7 @@ using System;
 using BanuPool.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BanuPool.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260130142428_AddRideId")]
+    partial class AddRideId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.2");
@@ -79,9 +82,6 @@ namespace BanuPool.Data.Migrations
                     b.Property<int?>("RideId")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int?>("SenderId")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -94,8 +94,6 @@ namespace BanuPool.Data.Migrations
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("SenderId");
 
                     b.ToTable("Notifications");
                 });
@@ -268,15 +266,6 @@ namespace BanuPool.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasDiscriminator().HasValue("Student");
-                });
-
-            modelBuilder.Entity("BanuPool.Core.Entities.Notification", b =>
-                {
-                    b.HasOne("BanuPool.Core.Entities.BaseUser", "Sender")
-                        .WithMany()
-                        .HasForeignKey("SenderId");
-
-                    b.Navigation("Sender");
                 });
 
             modelBuilder.Entity("BanuPool.Core.Entities.Reservation", b =>

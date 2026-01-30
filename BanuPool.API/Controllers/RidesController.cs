@@ -4,6 +4,9 @@ using BanuPool.Core.Interfaces;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Linq;
+using Microsoft.AspNetCore.SignalR;
+using BanuPool.API.Hubs;
+using Microsoft.EntityFrameworkCore;
 
 namespace BanuPool.API.Controllers
 {
@@ -12,10 +15,14 @@ namespace BanuPool.API.Controllers
     public class RidesController : ControllerBase
     {
         private readonly IRideService _rideService;
+        private readonly IHubContext<RideHub> _hubContext;
+        private readonly BanuPool.Data.AppDbContext _context;
 
-        public RidesController(IRideService rideService)
+        public RidesController(IRideService rideService, IHubContext<RideHub> hubContext, BanuPool.Data.AppDbContext context)
         {
             _rideService = rideService;
+            _hubContext = hubContext;
+            _context = context;
         }
 
         [HttpPost]
@@ -88,6 +95,31 @@ namespace BanuPool.API.Controllers
             {
                 var success = await _rideService.ReserveSeatAsync(id, userId);
                 if (!success) return BadRequest("Yer yok veya ilan bulunamadı.");
+
+                // SIGNALR NOTIFICATION: Notify Driver
+                var ride = await _rideService.GetRideByIdAsync(id);
+                if (ride != null && ride.DriverId != 0)
+                {
+                    // 1. SAVE TO DB
+                    var notification = new Notification
+                    {
+                        UserId = ride.DriverId,
+                        Title = "Yeni Rezervasyon",
+                        Message = $"{ride.Origin} -> {ride.Destination} ({ride.DepartureTime:HH:mm}) ilanınıza yeni bir rezervasyon yapıldı!",
+                        Type = "success",
+                        RideId = id,
+                        SenderId = userId,
+                        IsRead = false,
+                        CreatedAt = System.DateTime.UtcNow
+                    };
+                    _context.Notifications.Add(notification);
+                    await _context.SaveChangesAsync();
+
+                    // 2. SEND REAL-TIME
+                    await _hubContext.Clients.User(ride.DriverId.ToString())
+                        .SendAsync("ReceiveBookingNotification", notification.Message);
+                }
+
                 return Ok("Reservation confirmed.");
             }
             catch (System.InvalidOperationException ex)
@@ -99,8 +131,35 @@ namespace BanuPool.API.Controllers
         [HttpDelete("{id}/reserve")]
         public async Task<IActionResult> CancelReservation(int id, [FromQuery] int userId)
         {
+            // Get ride first to notify driver
+            var ride = await _rideService.GetRideByIdAsync(id);
+
             var success = await _rideService.CancelReservationAsync(id, userId);
             if (!success) return NotFound("Reservation not found.");
+
+            // NOTIFY DRIVER
+            if (ride != null && ride.DriverId != 0 && ride.DriverId != userId)
+            {
+                // 1. SAVE TO DB
+                var notification = new Notification
+                {
+                    UserId = ride.DriverId,
+                    Title = "Rezervasyon İptali",
+                    Message = $"{ride.Origin} -> {ride.Destination} ({ride.DepartureTime:HH:mm}) ilanınızdan bir yolcu rezervasyonunu iptal etti.",
+                    Type = "warning",
+                    RideId = ride.Id,
+                    SenderId = userId,
+                    IsRead = false,
+                    CreatedAt = System.DateTime.UtcNow
+                };
+                _context.Notifications.Add(notification);
+                await _context.SaveChangesAsync();
+
+                // 2. SEND REAL-TIME
+                await _hubContext.Clients.User(ride.DriverId.ToString())
+                    .SendAsync("ReceiveCancellationNotification", notification.Message);
+            }
+
             return Ok("Reservation cancelled.");
         }
 
@@ -152,8 +211,49 @@ namespace BanuPool.API.Controllers
         [HttpPost("{id}/cancel")]
         public async Task<IActionResult> CancelRide(int id, [FromBody] CancelRequest request)
         {
+            // Fetch passengers BEFORE cancelling to notify them
+            var ride = await _rideService.GetRideByIdAsync(id);
+            if (ride == null) return NotFound();
+
             var success = await _rideService.CancelRideAsync(id, request.Reason);
             if (!success) return BadRequest("Could not cancel ride");
+
+            // SIGNALR NOTIFICATION: Notify All Passengers
+            // 3. Notify Passengers (Persistent + SignalR)
+            var rideWithPassengers = await _context.Rides
+                .Include(r => r.Reservations)
+                .ThenInclude(res => res.Passenger)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
+            if (rideWithPassengers?.Reservations != null)
+            {
+                foreach (var reservation in rideWithPassengers.Reservations)
+                {
+                    var passenger = reservation.Passenger;
+                    if (passenger != null)
+                    {
+                         // 1. SAVE TO DB
+                        var notification = new Notification
+                        {
+                            UserId = passenger.Id,
+                            Title = "Rezervasyon İptali",
+                            Message = $"{rideWithPassengers.Origin} -> {rideWithPassengers.Destination} ({rideWithPassengers.DepartureTime:HH:mm}) seferiniz iptal edildi. Sürücü iptal nedeni: {request.Reason}",
+                            Type = "warning",
+                            RideId = id,
+                            SenderId = rideWithPassengers.DriverId,
+                            IsRead = false,
+                            CreatedAt = System.DateTime.UtcNow
+                        };
+                        _context.Notifications.Add(notification);
+                        
+                        // 2. SEND REAL-TIME
+                        await _hubContext.Clients.User(passenger.Id.ToString())
+                            .SendAsync("ReceiveCancellationNotification", notification.Message);
+                    }
+                }
+                await _context.SaveChangesAsync();
+            }
+
             return Ok(new { message = "Ride cancelled" });
         }
 

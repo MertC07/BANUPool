@@ -12,6 +12,7 @@ namespace BanuPool.Data
         public DbSet<Academician> Academicians { get; set; }
         public DbSet<Vehicle> Vehicles { get; set; }
         public DbSet<Ride> Rides { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
         public DbSet<Reservation> Reservations { get; set; }
 
         public DbSet<Review> Reviews { get; set; }
@@ -27,7 +28,7 @@ namespace BanuPool.Data
             // Reservation Relationships
             modelBuilder.Entity<Reservation>()
                 .HasOne(r => r.Ride)
-                .WithMany()
+                .WithMany(r => r.Reservations)
                 .HasForeignKey(r => r.RideId)
                 .OnDelete(DeleteBehavior.Restrict); // Prevent cascading delete cycles
 
