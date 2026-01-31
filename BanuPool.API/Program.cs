@@ -65,7 +65,8 @@ builder.Services.AddAuthentication(options =>
         {
             var accessToken = context.Request.Query["access_token"];
             var path = context.HttpContext.Request.Path;
-            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/rideHub"))
+            if (!string.IsNullOrEmpty(accessToken) && 
+               (path.StartsWithSegments("/rideHub") || path.StartsWithSegments("/chatHub")))
             {
                 context.Token = accessToken;
             }
@@ -135,6 +136,7 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapHub<BanuPool.API.Hubs.RideHub>("/rideHub");
+app.MapHub<BanuPool.API.Hubs.ChatHub>("/chatHub");
 
 
 app.Run();

@@ -10,5 +10,7 @@ namespace BanuPool.Core.Entities
         // Foreign Key
         public int OwnerId { get; set; }
         public BaseUser? Owner { get; set; }
+
+        public bool IsDeleted { get; set; } = false;
     }
 }

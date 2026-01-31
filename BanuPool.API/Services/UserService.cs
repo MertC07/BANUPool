@@ -22,7 +22,7 @@ namespace BanuPool.API.Services
 
         public async Task<Vehicle?> GetVehicleByUserIdAsync(int userId)
         {
-            return await _context.Vehicles.FirstOrDefaultAsync(v => v.OwnerId == userId);
+            return await _context.Vehicles.FirstOrDefaultAsync(v => v.OwnerId == userId && !v.IsDeleted);
         }
 
         public async Task<BaseUser> UpdateUserAsync(BaseUser user, Vehicle? vehicleUpdate)
@@ -48,6 +48,7 @@ namespace BanuPool.API.Services
                     existingVehicle.PlateNumber = vehicleUpdate.PlateNumber;
                     existingVehicle.Model = vehicleUpdate.Model;
                     existingVehicle.Color = vehicleUpdate.Color;
+                    existingVehicle.IsDeleted = false; // Restore if it was deleted
                     _context.Entry(existingVehicle).State = EntityState.Modified;
                 }
                 else
@@ -58,19 +59,20 @@ namespace BanuPool.API.Services
                         OwnerId = user.Id,
                         PlateNumber = vehicleUpdate.PlateNumber,
                         Model = vehicleUpdate.Model,
-                        Color = vehicleUpdate.Color
+                        Color = vehicleUpdate.Color,
+                        IsDeleted = false
                     };
                     _context.Vehicles.Add(newVehicle);
                 }
             }
             else
             {
-                // If vehicleUpdate is null, it means the user is not a driver anymore (or never was)
-                // Remove existing vehicle if present
+                // Soft delete existing vehicle if present
                 var existingVehicle = await _context.Vehicles.FirstOrDefaultAsync(v => v.OwnerId == user.Id);
                 if (existingVehicle != null)
                 {
-                    _context.Vehicles.Remove(existingVehicle);
+                    existingVehicle.IsDeleted = true;
+                    _context.Entry(existingVehicle).State = EntityState.Modified;
                 }
             }
 

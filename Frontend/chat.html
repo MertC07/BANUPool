@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sohbet | BANÜ-Pool</title>
+    <link rel="stylesheet" href="style.css"> <!-- Base styles -->
+    <link rel="stylesheet" href="chat.css"> <!-- Chat specific styles -->
+    <!-- SignalR Client Library (CDN) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+
+<body>
+    <nav>
+        <a href="index.html" class="logo">BANÜ-Pool</a>
+        <div class="nav-links">
+            <a href="dashboard.html">İlanlar</a>
+            <a href="profile.html">Profilim</a>
+        </div>
+    </nav>
+
+    <div class="chat-container">
+        <!-- Sidebar: Contact List -->
+        <div class="chat-sidebar">
+            <div class="sidebar-header">
+                <h3>Sohbetler</h3>
+            </div>
+            <div class="contact-list" id="contactList">
+                <!-- Contacts will be loaded here dynamically -->
+                <div class="loading-contacts">Yükleniyor...</div>
+            </div>
+        </div>
+
+        <!-- Main Chat Area -->
+        <div class="chat-main">
+            <!-- Chat Header -->
+            <div class="chat-header" id="chatHeader" style="display:none;">
+                <div class="chat-user-info">
+                    <img src="https://via.placeholder.com/40" alt="User" id="chatHeaderImg" class="user-avatar">
+                    <div class="user-details">
+                        <h4 id="chatHeaderName">Kullanıcı Adı</h4>
+                        <span class="status-indicator">Çevrimiçi</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Messages Area -->
+            <div class="messages-area" id="messagesArea">
+                <div class="no-chat-selected">
+                    <div class="empty-state-icon">💬</div>
+                    <p>Mesajlaşmaya başlamak için bir sohbet seçin</p>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="input-area" id="inputArea" style="display:none;">
+                <input type="text" id="messageInput" placeholder="Bir mesaj yazın..." autocomplete="off">
+                <button id="sendBtn" class="btn-primary-icon">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="chatService.js"></script>
+</body>
+
+</html>

@@ -13,6 +13,9 @@ namespace BanuPool.Core.Entities
         public int? RideId { get; set; } // Optional link to a ride
         public int? SenderId { get; set; } // The user causing the notification
         public BaseUser Sender { get; set; } // Navigation property
+        
+        public BaseUser User { get; set; } // Navigation property to UserId
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }

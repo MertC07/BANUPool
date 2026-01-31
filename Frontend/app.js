@@ -2302,8 +2302,7 @@ async function showNotifications() {
     // Auto mark all read in backend (silent)
     if (notes.some(n => !n.isRead)) {
         markAllReadSilent();
-        // We do NOT update notes.isRead here, so they appear 'fresh' (bright) in this view.
-        // We DO clear the badge immediately for feedback.
+        // Clear badge immediately for feedback
         const badge = document.getElementById('notif-badge');
         if (badge) {
             badge.innerText = '';
@@ -2324,34 +2323,55 @@ async function showNotifications() {
             </button>
         </div>
         <div class="notif-list" style="max-height:400px; overflow-y:auto; text-align:left; padding-right:5px;">
-            ${notes.map(n => `
-                <div class="notif-item read" id="notif-${n.id}" style="padding:12px; border-radius:8px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:start; transition:all 0.2s; border:1px solid transparent; opacity:0.8;">
-                    <!-- Avatar Section -->
-                    <div onclick="window.location.href='public-profile.html?id=${n.senderId || 0}'" style="cursor: pointer; margin-right: 12px; flex-shrink: 0;">
-                         ${n.senderPhoto
-            ? `<img src="${API_URL.replace('/api', '')}${n.senderPhoto}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #e2e8f0;">`
-            : `<div style="width: 40px; height: 40px; border-radius: 50%; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem;">
-                                ${n.senderName ? n.senderName.substring(0, 2).toUpperCase() : 'B'}
-                               </div>`
+            ${notes.map(n => {
+        // Determine Profile URL: 
+        // If senderId exists, go to public-profile.html. 
+        // Note: public-profile.html handles the logic to show the user details.
+        const profileUrl = n.senderId ? `public-profile.html?id=${n.senderId}` : '#';
+
+        // Photo URL: 
+        // Backend sends 'senderPhoto' based on current DB state, so it's always fresh.
+        // We handle the path prefix here.
+        let photoHtml = '';
+        if (n.senderPhoto) {
+            const cleanPath = n.senderPhoto.startsWith('/') ? n.senderPhoto : '/' + n.senderPhoto;
+            // Add timestamp to force refresh if browser caches heavily (optional but good practice)
+            const photoSrc = `${API_URL.replace('/api', '')}${cleanPath}`;
+            photoHtml = `<img src="${photoSrc}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #e2e8f0;">`;
+        } else {
+            // Default Initials Avatar
+            photoHtml = `<div style="width: 40px; height: 40px; border-radius: 50%; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem;">
+                                    ${n.senderName ? n.senderName.substring(0, 2).toUpperCase() : 'B'}
+                                   </div>`;
         }
+
+        return `
+                <div class="notif-item read" id="notif-${n.id}" style="padding:12px; border-radius:8px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:start; transition:all 0.2s; border:1px solid transparent; opacity:0.8;">
+                    <!-- Avatar Section (Clickable -> Public Profile) -->
+                    <!-- event.stopPropagation() is crucial to prevent bubbling to the main notification click -->
+                    <div onclick="event.stopPropagation(); window.location.href='${profileUrl}'" style="cursor: pointer; margin-right: 12px; flex-shrink: 0;" title="Profili Görülle">
+                         ${photoHtml}
                     </div>
 
+                    <!-- Content Section -->
                     <div style="flex:1; padding-right:10px;">
                         <span style="display:block; font-weight:500; color:var(--text-primary); margin-bottom:4px; line-height:1.4;">
-                            <strong style="cursor:pointer;" onclick="window.location.href='public-profile.html?id=${n.senderId || 0}'">${n.senderName || 'Sistem'}</strong> 
+                            <strong style="cursor:pointer;" onclick="event.stopPropagation(); window.location.href='${profileUrl}'">${n.senderName || 'Sistem'}</strong> 
                             ${n.message.replace(n.senderName, '')}
                         </span>
                         <div style="font-size:0.75rem; color:var(--text-secondary);">
                             ${new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </div>
                     </div>
+
+                    <!-- Actions -->
                     <div class="notif-actions" style="display:flex; gap:8px; align-items:center;">
                         <button onclick="deleteNotification(${n.id})" title="Sil" class="icon-btn danger">
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                         </button>
                     </div>
                 </div>
-            `).join('')}
+            `}).join('')}
         </div>
     `;
 

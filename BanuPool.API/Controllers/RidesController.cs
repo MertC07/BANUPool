@@ -257,6 +257,33 @@ namespace BanuPool.API.Controllers
             return Ok(new { message = "Ride cancelled" });
         }
 
+        [HttpGet("check-reservation-status")]
+        public async Task<IActionResult> CheckReservationStatus([FromQuery] int targetUserId)
+        {
+             var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value 
+                              ?? User.FindFirst("UserId")?.Value;
+            if (userIdClaim == null || !int.TryParse(userIdClaim, out int currentUserId)) return Unauthorized();
+
+            // Check if there is ANY ride where:
+            // 1. Current User is Driver AND Target User is Passenger (with specific status if needed, assuming existence implies some relation)
+            // 2. Target User is Driver AND Current User is Passenger
+            
+            // Note: Reservation entity doesn't explicitly have a 'Status' enum visible in previous files, 
+            // but usually existence in Reservations table implies booked/pending unless we have a Status column.
+            // Reviewing AppDbContext, I don't see a Status on Reservation, but I see Status on Ride.
+            // If the user said "Approved or Pending", and we don't have a status on Reservation, 
+            // we assume existence of a record means "Active".
+            
+            bool hasReservation = await _context.Reservations
+                .Include(r => r.Ride)
+                .AnyAsync(r => 
+                    (r.PassengerId == targetUserId && r.Ride.DriverId == currentUserId) ||
+                    (r.PassengerId == currentUserId && r.Ride.DriverId == targetUserId)
+                );
+
+            return Ok(hasReservation);
+        }
+
         public class CancelRequest { public string Reason { get; set; } }
     }
 }

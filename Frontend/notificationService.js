@@ -367,11 +367,13 @@ const NotificationService = {
                          <input type="checkbox" class="notif-checkbox" value="${n.id}" onchange="NotificationService.toggleSelection(${n.id}, this.checked)" style="width: 1.2rem; height: 1.2rem; cursor: pointer; accent-color: var(--primary-color);">
                     </div>
 
-                    <!-- Avatar (Clickable -> Profile) -->
-                    <div style="flex-shrink: 0; cursor: pointer;" onclick="event.stopPropagation(); window.location.href='profile.html?id=${n.senderId || '#'}';">
-                        <div style="width: 40px; height: 40px; border-radius: 50%; background-color: ${avatarColor}; color: ${avatarTextColor}; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem;">
-                            ${initials}
-                        </div>
+                    <!-- Avatar (Clickable -> Public Profile) -->
+                    <!-- Updated to point to public-profile.html with SenderId -->
+                    <div style="flex-shrink: 0; cursor: pointer;" onclick="event.stopPropagation(); window.location.href='public-profile.html?id=${n.senderId || ''}';">
+                        ${n.senderPhoto
+                        ? `<img src="${API_URL.replace('/api', '')}${n.senderPhoto.startsWith('/') ? n.senderPhoto : '/' + n.senderPhoto}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #e2e8f0;">`
+                        : `<div style="width: 40px; height: 40px; border-radius: 50%; background-color: ${avatarColor}; color: ${avatarTextColor}; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem;">${initials}</div>`
+                    }
                     </div>
 
                     <!-- Content (Clickable -> Read) -->

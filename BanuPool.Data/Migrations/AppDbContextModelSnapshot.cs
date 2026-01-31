@@ -48,6 +48,9 @@ namespace BanuPool.Data.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("ProfilePhotoPath")
+                        .HasColumnType("TEXT");
+
                     b.Property<double>("ReputationScore")
                         .HasColumnType("REAL");
 
@@ -225,6 +228,9 @@ namespace BanuPool.Data.Migrations
                     b.Property<string>("Color")
                         .IsRequired()
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Model")
                         .IsRequired()
