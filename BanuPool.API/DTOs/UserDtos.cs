@@ -15,6 +15,9 @@ namespace BanuPool.API.DTOs
         
         // Vehicle Info (Optional)
         public VehicleDto? Vehicle { get; set; }
+        
+        // Messaging Permission
+        public bool CanMessage { get; set; }
     }
 
     public class UserDto
@@ -23,6 +26,8 @@ namespace BanuPool.API.DTOs
         public string FirstName { get; set; } = string.Empty;
         public string LastName { get; set; } = string.Empty;
         public string? ProfilePhotoUrl { get; set; }
+        public bool IsOnline { get; set; }
+        public DateTime? LastActiveAt { get; set; }
     }
 
     public class VehicleDto

@@ -13,6 +13,10 @@ namespace BanuPool.Core.Entities
         public string PhoneNumber { get; set; } = string.Empty;
         public double ReputationScore { get; set; } = 5.0; // Default starts at 5.0
         public string? ProfilePhotoPath { get; set; }
+        
+        // Status Tracking
+        public bool IsOnline { get; set; } = false;
+        public DateTime? LastActiveAt { get; set; }
 
         // Navigation Properties can be added here later
     }

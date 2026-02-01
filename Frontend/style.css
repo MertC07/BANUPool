@@ -167,6 +167,10 @@ body.dark-mode ::-webkit-scrollbar-thumb {
     box-sizing: border-box;
 }
 
+html {
+    overflow-y: scroll;
+}
+
 body {
     font-family: 'Outfit', sans-serif;
     background-color: var(--bg-color);

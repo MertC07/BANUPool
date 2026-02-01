@@ -139,6 +139,7 @@ function updateNavigation() {
         navLinks.innerHTML = `
             <a href="index.html" class="${isIndex ? 'active' : ''}">Ana Sayfa</a>
             <a href="dashboard.html" class="${isDashboard ? 'active' : ''}">İlanlar</a>
+            <a href="chat.html" class="${path.includes('chat.html') ? 'active' : ''}">Mesajlar</a>
             <a href="profile.html" class="${isProfile ? 'active' : ''}">Profilim</a>
             
             <div class="notification-wrapper" style="margin-right: 15px;">
@@ -815,7 +816,12 @@ function createRideCard(ride) {
                     </h3>
                     <div class="ride-details" style="display:grid; grid-template-columns: auto auto; gap: 0.5rem 2rem; margin-top:0.5rem;">
                     <span>📅 <b>${dateStr}</b> ${timeStr}</span>
-                    <span>👤 ${ride.driver ? ride.driver.firstName : 'Sürücü'} <span style="color:#f59e0b; font-weight:bold;">⭐ ${(ride.driver && ride.driver.reputationScore !== undefined) ? ride.driver.reputationScore.toFixed(1) : '5.0'}</span></span>
+                    <span>
+                        <a href="public-profile.html?id=${ride.driver?.id}" style="text-decoration:none; color:inherit; display:flex; align-items:center; gap:0.3rem;">
+                           👤 <span style="font-weight:600; text-decoration:underline;">${ride.driver ? ride.driver.firstName : 'Sürücü'}</span> 
+                           <span style="color:#f59e0b; font-weight:bold;">⭐ ${(ride.driver && ride.driver.reputationScore !== undefined) ? ride.driver.reputationScore.toFixed(1) : '5.0'}</span>
+                        </a>
+                    </span>
                     <span>🚗 ${ride.vehicle ? (ride.vehicle.model + ' (' + ride.vehicle.plateNumber + ')') : 'Araç Bilgisi Yok'}</span>
                     <span>💺 Boş: <span style="color:${isFull ? 'red' : 'green'}">${available}</span> / ${ride.totalSeats}</span>
                 </div>

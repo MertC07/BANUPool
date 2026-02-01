@@ -11,10 +11,12 @@ namespace BanuPool.API.Controllers
     public class UsersController : ControllerBase
     {
         private readonly IUserService _userService;
+        private readonly BanuPool.Data.AppDbContext _context; // Inject DbContext
 
-        public UsersController(IUserService userService)
+        public UsersController(IUserService userService, BanuPool.Data.AppDbContext context)
         {
             _userService = userService;
+            _context = context;
         }
 
         [HttpGet("{id}")]
@@ -24,6 +26,28 @@ namespace BanuPool.API.Controllers
             if (user == null) return NotFound("Kullanıcı bulunamadı.");
 
             var vehicle = await _userService.GetVehicleByUserIdAsync(id);
+
+            // Determine if Current User can message this Profile User
+            bool canMessage = false;
+            try
+            {
+                var userIdStr = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value 
+                               ?? User.FindFirst("UserId")?.Value;
+                
+                if (!string.IsNullOrEmpty(userIdStr) && int.TryParse(userIdStr, out int currentUserId))
+                {
+                    if (currentUserId != id) // Cannot message self
+                    {
+                        // Check if any reservation connects them (as Driver or Passenger)
+                        canMessage = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(
+                            _context.Reservations.Include(r => r.Ride), 
+                            r => (r.PassengerId == currentUserId && r.Ride.DriverId == id) || 
+                                 (r.PassengerId == id && r.Ride.DriverId == currentUserId)
+                        );
+                    }
+                }
+            }
+            catch { /* Ignore auth errors, default false */ }
 
             var dto = new UserProfileDto
             {
@@ -35,6 +59,7 @@ namespace BanuPool.API.Controllers
                 UserType = user is Student ? "Öğrenci" : "Akademisyen",
                 ReputationScore = user.ReputationScore,
                 ProfilePhotoUrl = user.ProfilePhotoPath,
+                CanMessage = canMessage, // Set permission
                 Vehicle = vehicle != null ? new VehicleDto
                 {
                     PlateNumber = vehicle.PlateNumber,

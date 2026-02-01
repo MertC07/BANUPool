@@ -1,44 +1,63 @@
-/* Chat Container Layout */
+/* Instagram/Messenger Style Chat UI */
+:root {
+    --chat-primary-color: #0084ff;
+    /* Messenger Blue */
+    --bg-color: #ffffff;
+    --chat-bg: #ffffff;
+    --message-sent-bg: #0084ff;
+    --message-sent-text: #ffffff;
+    --message-received-bg: #f0f2f5;
+    /* Light Gray */
+    --message-received-text: #050505;
+    --text-secondary: #65676b;
+    --border-color: #dbdbdb;
+    --input-bg: #f0f2f5;
+}
+
 body {
-    background-color: #f0f2f5;
+    background-color: #fafafa;
     height: 100vh;
     display: flex;
     flex-direction: column;
+    margin: 0;
 }
 
 .chat-container {
     display: flex;
     flex: 1;
-    max-width: 1200px;
-    width: 95%;
+    max-width: 935px;
+    /* Instagram web width standard */
+    width: 100%;
     margin: 20px auto;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    /* Subtle radius like Insta Web */
     overflow: hidden;
     height: calc(100vh - 100px);
-    /* Adjust based on nav height */
 }
 
 /* Sidebar */
 .chat-sidebar {
-    width: 300px;
-    border-right: 1px solid #e2e8f0;
+    width: 350px;
+    border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
-    background: #ffffff;
+    background: #fff;
 }
 
 .sidebar-header {
-    padding: 15px 20px;
-    border-bottom: 1px solid #e2e8f0;
-    background: #f8fafc;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid var(--border-color);
 }
 
 .sidebar-header h3 {
+    font-size: 16px;
+    font-weight: 600;
     margin: 0;
-    color: var(--text-primary);
-    font-size: 1.2rem;
 }
 
 .contact-list {
@@ -49,28 +68,27 @@ body {
 .contact-item {
     display: flex;
     align-items: center;
-    padding: 15px 20px;
+    padding: 8px 20px;
     cursor: pointer;
-    transition: background 0.2s;
-    border-bottom: 1px solid #f1f5f9;
+    transition: background 0.1s;
 }
 
 .contact-item:hover {
-    background: #f8fafc;
+    background: #fafafa;
 }
 
 .contact-item.active {
-    background: #e0f2fe;
-    /* Light blue */
+    background: #efefef;
 }
 
 .contact-avatar {
-    width: 45px;
-    height: 45px;
+    width: 56px;
+    height: 56px;
     border-radius: 50%;
-    margin-right: 15px;
+    margin-right: 12px;
     object-fit: cover;
-    background: #cbd5e1;
+    background: #dbdbdb;
+    flex-shrink: 0;
 }
 
 .contact-info {
@@ -80,18 +98,18 @@ body {
 
 .contact-name {
     margin: 0;
-    font-weight: 600;
-    color: #334155;
-    font-size: 0.95rem;
+    font-weight: 400;
+    color: #262626;
+    font-size: 14px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 .last-message {
-    margin: 4px 0 0;
-    font-size: 0.8rem;
-    color: #64748b;
+    margin: 3px 0 0;
+    font-size: 14px;
+    color: #8e8e8e;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -103,47 +121,52 @@ body {
     display: flex;
     flex-direction: column;
     background: #fff;
-    /* Could be #efeae2 for WhatsApp feel */
-    position: relative;
-    background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
-    background-size: 20px 20px;
 }
 
 /* Chat Header */
 .chat-header {
-    padding: 10px 20px;
-    background: #ffffff;
-    border-bottom: 1px solid #e2e8f0;
+    min-height: 70px;
+    padding: 10px 24px;
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+    background: #fff;
     z-index: 10;
 }
 
 .chat-user-info {
     display: flex;
     align-items: center;
+    gap: 12px;
 }
 
 .user-avatar {
-    width: 40px;
-    height: 40px;
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
-    margin-right: 12px;
     object-fit: cover;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.user-details {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .user-details h4 {
     margin: 0;
-    font-size: 1rem;
-    color: var(--text-primary);
+    font-size: 16px;
+    font-weight: 600;
+    color: #262626;
+    line-height: 1.2;
 }
 
 .status-indicator {
-    font-size: 0.75rem;
-    color: #10b981;
-    /* Green */
+    font-size: 13px;
+    color: #8e8e8e;
+    margin-top: 2px;
 }
 
 /* Messages Area */
@@ -153,119 +176,130 @@ body {
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 2px;
+    /* Group messages visually */
 }
 
+/* Empty State */
 .no-chat-selected {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     height: 100%;
-    color: #94a3b8;
 }
 
 .empty-state-icon {
     font-size: 4rem;
     margin-bottom: 1rem;
-    opacity: 0.5;
+    color: #262626;
 }
 
 /* Message Bubbles */
 .message {
     max-width: 60%;
+    width: fit-content;
     padding: 10px 14px;
-    border-radius: 12px;
-    position: relative;
-    font-size: 0.95rem;
+    /* Default padded bubble */
+    border-radius: 22px;
+    /* Very round like Messenger */
+    font-size: 15px;
+    /* Readable standard font size */
     line-height: 1.4;
+    position: relative;
     word-wrap: break-word;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    margin-bottom: 2px;
 }
 
+/* Sent Messages (Right) */
 .message.sent {
     align-self: flex-end;
-    background: #dcf8c6;
-    /* WhatsApp green */
-    background: #e0f2fe;
-    /* Or brand blue-ish */
-    color: #1e293b;
-    border-bottom-right-radius: 2px;
+    /* Flex alignment */
+    margin-left: auto;
+    /* Fallback alignment */
+    background-color: var(--message-sent-bg);
+    color: var(--message-sent-text);
+    border-bottom-right-radius: 4px;
+    /* Tail effect */
 }
 
+/* Received Messages (Left) */
 .message.received {
     align-self: flex-start;
-    background: #ffffff;
-    border: 1px solid #f1f5f9;
-    color: #1e293b;
-    border-bottom-left-radius: 2px;
+    /* Flex alignment */
+    margin-right: auto;
+    /* Fallback alignment */
+    background-color: var(--message-received-bg);
+    color: var(--message-received-text);
+    border-bottom-left-radius: 4px;
+    /* Tail effect */
 }
 
 .message-time {
     display: block;
-    font-size: 0.7rem;
-    color: rgba(0, 0, 0, 0.45);
+    font-size: 0.65rem;
     margin-top: 4px;
     text-align: right;
+    color: inherit;
+    opacity: 0.7;
 }
 
 /* Input Area */
 .input-area {
-    padding: 15px 20px;
-    background: #ffffff;
-    border-top: 1px solid #e2e8f0;
+    padding: 20px;
     display: flex;
-    gap: 10px;
     align-items: center;
+    gap: 12px;
 }
 
 #messageInput {
     flex: 1;
-    padding: 12px;
-    border: 1px solid #e2e8f0;
-    border-radius: 24px;
+    padding: 10px 16px;
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 22px;
     outline: none;
-    font-family: inherit;
-    transition: border-color 0.2s;
+    font-size: 14px;
+    min-height: 20px;
 }
 
 #messageInput:focus {
-    border-color: var(--primary-color);
+    border-color: #a8a8a8;
 }
 
 .btn-primary-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: var(--primary-color);
-    color: white;
+    width: auto;
+    height: auto;
+    background: transparent;
+    color: var(--chat-primary-color);
     border: none;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    padding: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    transition: transform 0.1s, background 0.2s;
 }
 
 .btn-primary-icon:hover {
-    background: var(--secondary-color);
-    transform: scale(1.05);
+    color: #0074e0;
 }
 
-.btn-primary-icon:active {
-    transform: scale(0.95);
+.btn-primary-icon svg {
+    display: block;
+    /* Use SVG */
 }
 
-/* Scrollbar Styling */
-::-webkit-scrollbar {
+/* Scrollbar for chat elements only */
+.contact-list::-webkit-scrollbar,
+.messages-area::-webkit-scrollbar {
     width: 6px;
-}
-
-::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 3px;
-}
-
-::-webkit-scrollbar-track {
     background: transparent;
+}
+
+.contact-list::-webkit-scrollbar-thumb,
+.messages-area::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
 }

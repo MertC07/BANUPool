@@ -27,12 +27,14 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 
 // CORS Configuration
+// CORS Configuration
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll",
-        b => b.AllowAnyOrigin()
+        b => b.WithOrigins("http://127.0.0.1:5500", "http://localhost:5500") // Frontend Origins
               .AllowAnyMethod()
-              .AllowAnyHeader());
+              .AllowAnyHeader()
+              .AllowCredentials()); // Critical for SignalR
 });
 
 // Authentication Configuration

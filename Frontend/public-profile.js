@@ -121,23 +121,14 @@ async function loadPublicProfile(userId) {
 
         // 6. Check Reservation Status for Chat Permission
         const sendBtn = document.getElementById('sendMessageBtn');
-        if (sendBtn && userId) {
-            sendBtn.style.display = 'none'; // Hide by default
-
-            // Check if own profile
-            const currentUserId = localStorage.getItem('userId') || sessionStorage.getItem('userId');
-            if (currentUserId && currentUserId != userId) {
-                try {
-                    const statusRes = await fetch(`${API_URL}/rides/check-reservation-status?targetUserId=${userId}`, { headers });
-                    if (statusRes.ok) {
-                        const canChat = await statusRes.json();
-                        if (canChat) {
-                            sendBtn.style.display = 'flex'; // Show if allowed
-                        }
-                    }
-                } catch (err) {
-                    console.error("Failed to check chat permission", err);
-                }
+        if (sendBtn) {
+            // Logic: Only show if backend says CanMessage is true.
+            // (Backend checks if User == CurrentUser, forcing CanMessage=false in that case too)
+            if (data.canMessage) {
+                sendBtn.style.display = 'flex';
+                sendBtn.onclick = () => window.location.href = `chat.html?targetId=${userId}`;
+            } else {
+                sendBtn.style.display = 'none';
             }
         }
 

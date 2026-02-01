@@ -16,8 +16,19 @@
     <nav>
         <a href="index.html" class="logo">BANÜ-Pool</a>
         <div class="nav-links">
+            <a href="index.html">Ana Sayfa</a>
             <a href="dashboard.html">İlanlar</a>
+            <a href="chat.html" class="active">Mesajlar</a>
             <a href="profile.html">Profilim</a>
+
+            <div class="notification-wrapper" style="margin-right: 15px;">
+                <a href="notifications.html" class="notification-bell">
+                    🔔
+                    <span class="notification-badge" id="notificationBadge" style="display: none;"></span>
+                </a>
+            </div>
+
+            <a href="#" onclick="logout()">Çıkış Yap</a>
         </div>
     </nav>
 
@@ -46,28 +57,34 @@
                 </div>
             </div>
 
-            <!-- Messages Area -->
-            <div class="messages-area" id="messagesArea">
-                <div class="no-chat-selected">
-                    <div class="empty-state-icon">💬</div>
-                    <p>Mesajlaşmaya başlamak için bir sohbet seçin</p>
-                </div>
+            <!-- Messages Area (Only messages) -->
+            <div class="messages-area" id="messagesArea" style="display:none;"></div>
+
+            <!-- Empty State (Separate container) -->
+            <div id="chatEmptyState" class="no-chat-selected"
+                style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%;">
+                <div class="empty-state-icon">💬</div>
+                <p>Mesajlaşmaya başlamak için bir sohbet seçin</p>
             </div>
 
             <!-- Input Area -->
             <div class="input-area" id="inputArea" style="display:none;">
-                <input type="text" id="messageInput" placeholder="Bir mesaj yazın..." autocomplete="off">
-                <button id="sendBtn" class="btn-primary-icon">
-                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"
-                        stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="22" y1="2" x2="11" y2="13"></line>
-                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                    </svg>
-                </button>
+                <div id="chatControls" style="display:flex; width:100%; gap:10px; align-items:center;">
+                    <input type="text" id="messageInput" placeholder="Bir mesaj yazın..." autocomplete="off">
+                    <div id="sendBtn" class="btn-primary-icon" role="button" tabindex="0"
+                        style="cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                        <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2"
+                            fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                        </svg>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
+    <script src="notificationService.js"></script>
     <script src="chatService.js"></script>
 </body>
 
